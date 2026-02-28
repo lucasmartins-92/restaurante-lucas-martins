@@ -1,15 +1,195 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
-    <title>MarmitaTech - Login</title>
-    <style>body { font-family: sans-serif; display: flex; justify-content: center; margin-top: 100px; background: #f4f4f4; }</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Premium - Podrão do Lucas</title>
+    <style>
+        /* --- Reset e Estilos Globais --- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212; /* Fundo Dark Elegante */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        /* --- Contêiner Principal do Card --- */
+        .login-card {
+            background-color: #1e1e1e;
+            width: 100%;
+            max-width: 420px;
+            border-radius: 16px;
+            overflow: hidden; /* Mantém a imagem dentro das bordas arredondadas */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease;
+        }
+
+        .login-card:hover {
+            transform: translateY(-5px); /* Efeito flutuante suave */
+        }
+
+        /* --- Estilização da Imagem de Banner --- */
+        .banner-frame {
+            width: 100%;
+            height: 200px; /* Altura fixa para o banner */
+            overflow: hidden;
+            border-bottom: 4px solid #f39c12; /* Detalhe em laranja */
+        }
+
+        .banner-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Garante que a imagem preencha o espaço sem distorcer */
+            object-position: center;
+        }
+
+        /* --- Conteúdo do Formulário --- */
+        .form-content {
+            padding: 40px 30px;
+        }
+
+        .brand-header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .brand-header h2 {
+            font-size: 28px;
+            font-weight: 800;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .brand-header h2 span {
+            color: #f39c12; /* Destaque em laranja no nome */
+        }
+
+        .brand-subtitle {
+            font-size: 14px;
+            color: #aaaaaa;
+            margin-top: 5px;
+        }
+
+        /* --- Estilização dos Campos de Entrada --- */
+        .input-group {
+            position: relative;
+            margin-bottom: 25px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 15px 15px 15px 45px; /* Espaço para o ícone fictício */
+            background-color: #2c2c2c;
+            border: 2px solid #333;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        /* Placeholder customizado */
+        .input-group input::placeholder {
+            color: #777;
+        }
+
+        /* Efeito de Foco nos Inputs */
+        .input-group input:focus {
+            outline: none;
+            border-color: #f39c12;
+            background-color: #333;
+            box-shadow: 0 0 10px rgba(243, 156, 18, 0.3);
+        }
+
+        /* --- Estilização do Botão --- */
+        .btn-submit {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(45deg, #f39c12, #f1c40f); /* Gradiente vibrante */
+            color: #121212;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(243, 156, 18, 0.4);
+        }
+
+        .btn-submit:hover {
+            background: linear-gradient(45deg, #e67e22, #f39c12);
+            transform: scale(1.02); /* Pulsa levemente */
+            box-shadow: 0 6px 20px rgba(243, 156, 18, 0.6);
+        }
+
+        .btn-submit:active {
+            transform: scale(0.98); /* Efeito de clique */
+        }
+
+        /* --- Links Adicionais --- */
+        .footer-links {
+            text-align: center;
+            margin-top: 25px;
+            font-size: 14px;
+        }
+
+        .footer-links a {
+            color: #f1c40f;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+            color: #fff;
+            text-decoration: underline;
+        }
+
+    </style>
 </head>
 <body>
-    <form action="/login" method="POST" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
-        <h2>🥪 Restaurante Lucas Martins Login</h2>
-        <input type="text" name="username" placeholder="Usuário" required><br><br>
-        <input type="password" name="password" placeholder="Senha" required><br><br>
-        <button type="submit">Entrar</button>
-    </form>
+
+    <div class="login-card">
+        <div class="banner-frame">
+            <img src="https://assets.unileversolutions.com/recipes-v2/230453.jpg" 
+                 alt="Sanduíche Gourmet Detalhado" 
+                 class="banner-img">
+        </div>
+
+        <div class="form-content">
+            <div class="brand-header">
+                <h2>Podrão do <span>Lucas</span></h2>
+                <p class="brand-subtitle">O sabor autêntico na sua tela.</p>
+            </div>
+
+            <form action="/login" method="POST">
+                <div class="input-group">
+                    <input type="text" name="username" placeholder="👤 Seu Usuário" required>
+                </div>
+
+                <div class="input-group">
+                    <input type="password" name="password" placeholder="🔒 Sua Senha Extraordinária" required>
+                </div>
+
+                <button type="submit" class="btn-submit">Entrar no Sistema</button>
+            </form>
+
+            <div class="footer-links">
+                <p>Esqueceu a senha? <a href="#">Clique aqui</a></p>
+                <p style="margin-top: 10px; color: #777;">Acesso restrito a funcionários.</p>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
