@@ -1,32 +1,80 @@
 name: integracao continua
-
 on:
   push:
-    branches: ["develop"]
-
+    branches: [ "develop" ]
   pull_request:
-    branches: ["develop"]
+    branches: [ "develop" ]
 
 jobs:
   estagio_build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout do código
-
-        uses: actions/checkout@v5
-
+        uses: actions/checkout@v4
       - name: Configurar Node.js 18
-
-        uses: actions/setup-node@v5
-
+        uses: actions/setup-node@v4
         with:
-          node-version: "18"
-
+          node-version: '18'
       - name: Instalar dependências
-
         run: npm install
-
       - name: Verificar sintaxe do projeto
-
         run: node --check index.js
+
+  estagio_lint:
+    runs-on: ubuntu-latest
+    needs: estagio_build
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+      - name: Configurar Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Gerar lockfile temporário
+        run: npm install --package-lock-only
+      - name: Instalar dependências
+        run: npm install
+      - name: Instalar globals para ESLint
+        run: npm install --no-save globals
+      - name: Criar configuração temporária do ESLint
+        run: |
+          cat > eslint.config.js <<'EOF'
+          const globals = require("globals");
+          module.exports = [
+            {
+              files: ["**/*.js"],
+              ignores: ["node_modules/**"],
+              languageOptions: {
+                ecmaVersion: 2021,
+                sourceType: "commonjs",
+                globals: {
+                  ...globals.node,
+                  ...globals.commonjs
+                }
+              },
+              rules: {
+                "no-unused-vars": "warn",
+                "no-undef": "error"
+              }
+            }
+          ];
+          EOF
+      - name: Rodar lint
+        run: npx eslint .
+
+  job_sonar:
+    needs: estagio_lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.TOKEN_SONARQUBE }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=Kelvins-Bistro
+            -Dsonar.projectName="Kelvins-Bistro"
+            -Dsonar.sources=.
