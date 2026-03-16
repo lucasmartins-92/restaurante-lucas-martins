@@ -75,6 +75,6 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
           args: >
-            -Dsonar.projectKey=Kelvins-Bistro
-            -Dsonar.projectName="Kelvins-Bistro"
+            -Dsonar.projectKey=restaurante-lucas-martins
+            -Dsonar.projectName="restaurante-lucas-martins"
             -Dsonar.sources=.
