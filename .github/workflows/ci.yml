@@ -1,9 +1,10 @@
 name: integracao continua
+
 on:
   push:
-    branches: [ "develop" ]
+    branches: ["develop"]
   pull_request:
-    branches: [ "develop" ]
+    branches: ["develop"]
 
 jobs:
   estagio_build:
@@ -11,14 +12,26 @@ jobs:
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
+
       - name: Configurar Node.js 18
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: "18"
+          package-manager-cache: false
+
+      - name: Gerar lockfile temporário
+        run: npm install --package-lock-only
+
       - name: Instalar dependências
         run: npm install
-      - name: Verificar sintaxe do projeto
-        run: node --check index.js
+
+      - name: Verificar sintaxe de todos os arquivos JS
+        run: |
+          find . -type f -name "*.js" \
+            ! -path "./node_modules/*" \
+            ! -path "./.git/*" \
+            ! -path "./dist/*" \
+            -exec node --check {} \;
 
   estagio_lint:
     runs-on: ubuntu-latest
@@ -26,24 +39,31 @@ jobs:
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
+
       - name: Configurar Node.js 18
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: "18"
+          package-manager-cache: false
+
       - name: Gerar lockfile temporário
         run: npm install --package-lock-only
+
       - name: Instalar dependências
         run: npm install
-      - name: Instalar globals para ESLint
-        run: npm install --no-save globals
+
+      - name: Instalar dependências temporárias do lint
+        run: npm install --no-save eslint globals
+
       - name: Criar configuração temporária do ESLint
         run: |
           cat > eslint.config.js <<'EOF'
           const globals = require("globals");
+
           module.exports = [
             {
               files: ["**/*.js"],
-              ignores: ["node_modules/**"],
+              ignores: ["node_modules/**", ".git/**", "dist/**"],
               languageOptions: {
                 ecmaVersion: 2021,
                 sourceType: "commonjs",
@@ -59,22 +79,40 @@ jobs:
             }
           ];
           EOF
+
       - name: Rodar lint
         run: npx eslint .
 
   job_sonar:
     needs: estagio_lint
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Essencial para o Sonar ler o histórico de branches
+
+      - name: Criar sonar-project.properties dinâmico
+        run: |
+          # Define o nome do repo e a branch dinamicamente
+          echo "sonar.projectKey=${{ github.event.repository.name }}" > sonar-project.properties
+          echo "sonar.projectName=${{ github.event.repository.name }}" >> sonar-project.properties
+          echo "sonar.branch.name=${{ github.ref_name }}" >> sonar-project.properties
+          echo "sonar.sources=." >> sonar-project.properties
+          echo "sonar.inclusions=**/*.js" >> sonar-project.properties
+          echo "sonar.sourceEncoding=UTF-8" >> sonar-project.properties
+          echo "sonar.exclusions=node_modules/**,.git/**,.github/**,coverage/**,dist/**" >> sonar-project.properties
+
+      - name: Exibir configuração do Sonar
+        run: cat sonar-project.properties
+
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.TOKEN_SONARQUBE }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_HOST_URL: "https://devsecops.dcotech.com.br"
         with:
+          # Reforça a branch nos argumentos da execução
           args: >
-            -Dsonar.projectKey=restaurante-lucas-martins
-            -Dsonar.projectName="restaurante-lucas-martins"
-            -Dsonar.sources=.
+            -Dsonar.branch.name=${{ github.ref_name }}
