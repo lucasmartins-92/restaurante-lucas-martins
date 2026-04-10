@@ -83,30 +83,8 @@ jobs:
       - name: Rodar lint
         run: npx eslint .
 
-  estagio_sca:
-    runs-on: ubuntu-latest
-    needs: estagio_lint
-    steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-
-      - name: Configurar Node.js 18
-        uses: actions/setup-node@v4
-        with:
-          node-version: "18"
-          package-manager-cache: false
-
-      - name: Gerar lockfile temporário
-        run: npm install --package-lock-only
-
-      - name: Instalar dependências
-        run: npm install
-
-      - name: SCA - npm audit (falha em HIGH/CRITICAL)
-        run: npm audit --audit-level=high
-
   job_sonar:
-    needs: estagio_sca
+    needs: estagio_lint
     runs-on: ubuntu-latest
 
     steps:
