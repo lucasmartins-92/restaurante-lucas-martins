@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const mysql = require('mysql2/promise');
+const bcrypt = require('bcrypt');
 const path = require('path');
 
 const app = express();
@@ -13,6 +14,7 @@ const dbConfig = {
 };
 
 let pool;
+const BCRYPT_SALT_ROUNDS = 10;
 
 async function connectWithRetry() {
     console.log('🔍 [INFRA] Tentando conectar ao MySQL...');
@@ -34,16 +36,44 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-app.get('/', (req, res) => res.render('login'));
+app.get('/', (req, res) => res.render('login', { error: null }));
+
+app.get('/cadastro', (req, res) => res.render('cadastro', { error: null }));
 
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        const [rows] = await pool.query('SELECT * FROM users WHERE username = ? AND password = ?', [username, password]);
-        if (rows.length > 0) res.redirect('/dashboard');
-        else res.send('<h1>Login Inválido</h1><a href="/">Voltar</a>');
+        const [rows] = await pool.query('SELECT password FROM users WHERE username = ?', [username]);
+        if (rows.length === 0) {
+            return res.status(401).render('login', { error: 'Usuário ou senha inválidos.' });
+        }
+
+        const storedPassword = rows[0].password;
+        const isValidPassword = await bcrypt.compare(password, storedPassword);
+
+        if (isValidPassword) res.redirect('/dashboard');
+        else res.status(401).render('login', { error: 'Usuário ou senha inválidos.' });
     } catch (err) {
-        res.status(500).send("Erro no banco.");
+        res.status(500).render('login', { error: 'Erro no banco. Tente novamente.' });
+    }
+});
+
+app.post('/cadastro', async (req, res) => {
+    const { username, password, confirmPassword } = req.body;
+
+    if (password !== confirmPassword) {
+        return res.status(400).render('cadastro', { error: 'As senhas não conferem.' });
+    }
+
+    try {
+        const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+        await pool.query('INSERT INTO users (username, password) VALUES (?, ?)', [username, hashedPassword]);
+        res.redirect('/');
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).render('cadastro', { error: 'Usuário já existe.' });
+        }
+        res.status(500).render('cadastro', { error: 'Erro ao cadastrar usuário.' });
     }
 });
 

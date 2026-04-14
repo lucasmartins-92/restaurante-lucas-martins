@@ -7,9 +7,10 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "express": "4.16.0",
-    "mysql2": "3.9.1",
+    "bcrypt": "^6.0.0",
+    "body-parser": "1.18.3",
     "ejs": "3.1.6",
-    "body-parser": "1.18.3"
+    "express": "4.16.0",
+    "mysql2": "3.9.1"
   }
 }

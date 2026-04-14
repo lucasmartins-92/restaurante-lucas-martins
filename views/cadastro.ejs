@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Premium - Podrão do Lucas</title>
+    <title>Cadastro de Usuário - Podrão do Lucas</title>
     <style>
-        /* --- Reset e Estilos Globais --- */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -14,7 +13,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #121212; /* Fundo Dark Elegante */
+            background-color: #121212;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -22,37 +21,34 @@
             color: #fff;
         }
 
-        /* --- Contêiner Principal do Card --- */
         .login-card {
             background-color: #1e1e1e;
             width: 100%;
             max-width: 420px;
             border-radius: 16px;
-            overflow: hidden; /* Mantém a imagem dentro das bordas arredondadas */
+            overflow: hidden;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             transition: transform 0.3s ease;
         }
 
         .login-card:hover {
-            transform: translateY(-5px); /* Efeito flutuante suave */
+            transform: translateY(-5px);
         }
 
-        /* --- Estilização da Imagem de Banner --- */
         .banner-frame {
             width: 100%;
-            height: 200px; /* Altura fixa para o banner */
+            height: 200px;
             overflow: hidden;
-            border-bottom: 4px solid #f39c12; /* Detalhe em laranja */
+            border-bottom: 4px solid #f39c12;
         }
 
         .banner-img {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* Garante que a imagem preencha o espaço sem distorcer */
+            object-fit: cover;
             object-position: center;
         }
 
-        /* --- Conteúdo do Formulário --- */
         .form-content {
             padding: 40px 30px;
         }
@@ -71,7 +67,7 @@
         }
 
         .brand-header h2 span {
-            color: #f39c12; /* Destaque em laranja no nome */
+            color: #f39c12;
         }
 
         .brand-subtitle {
@@ -80,15 +76,14 @@
             margin-top: 5px;
         }
 
-        /* --- Estilização dos Campos de Entrada --- */
         .input-group {
             position: relative;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
 
         .input-group input {
             width: 100%;
-            padding: 15px 15px 15px 45px; /* Espaço para o ícone fictício */
+            padding: 15px 15px 15px 45px;
             background-color: #2c2c2c;
             border: 2px solid #333;
             border-radius: 8px;
@@ -97,12 +92,10 @@
             transition: all 0.3s ease;
         }
 
-        /* Placeholder customizado */
         .input-group input::placeholder {
             color: #777;
         }
 
-        /* Efeito de Foco nos Inputs */
         .input-group input:focus {
             outline: none;
             border-color: #f39c12;
@@ -110,11 +103,10 @@
             box-shadow: 0 0 10px rgba(243, 156, 18, 0.3);
         }
 
-        /* --- Estilização do Botão --- */
         .btn-submit {
             width: 100%;
             padding: 15px;
-            background: linear-gradient(45deg, #f39c12, #f1c40f); /* Gradiente vibrante */
+            background: linear-gradient(45deg, #f39c12, #f1c40f);
             color: #121212;
             border: none;
             border-radius: 8px;
@@ -125,16 +117,17 @@
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(243, 156, 18, 0.4);
+            margin-top: 8px;
         }
 
         .btn-submit:hover {
             background: linear-gradient(45deg, #e67e22, #f39c12);
-            transform: scale(1.02); /* Pulsa levemente */
+            transform: scale(1.02);
             box-shadow: 0 6px 20px rgba(243, 156, 18, 0.6);
         }
 
         .btn-submit:active {
-            transform: scale(0.98); /* Efeito de clique */
+            transform: scale(0.98);
         }
 
         .btn-secondary {
@@ -151,6 +144,8 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             text-decoration: none;
+            text-align: center;
+            cursor: pointer;
             transition: all 0.3s ease;
         }
 
@@ -171,25 +166,6 @@
             font-size: 14px;
             font-weight: 600;
         }
-
-        /* --- Links Adicionais --- */
-        .footer-links {
-            text-align: center;
-            margin-top: 25px;
-            font-size: 14px;
-        }
-
-        .footer-links a {
-            color: #f1c40f;
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-
-        .footer-links a:hover {
-            color: #fff;
-            text-decoration: underline;
-        }
-
     </style>
 </head>
 <body>
@@ -204,31 +180,30 @@
         <div class="form-content">
             <div class="brand-header">
                 <h2>Podrão do <span>Lucas</span></h2>
-                <p class="brand-subtitle">O sabor autêntico na sua tela.</p>
+                <p class="brand-subtitle">Cadastro de novo usuário.</p>
             </div>
 
             <% if (error) { %>
                 <div class="error-message"><%= error %></div>
             <% } %>
 
-            <form action="/login" method="POST">
+            <form action="/cadastro" method="POST">
                 <div class="input-group">
-                    <input type="text" name="username" placeholder="👤 Seu Usuário" required>
+                    <input type="text" name="username" placeholder="👤 Nome de usuário" required>
                 </div>
 
                 <div class="input-group">
-                    <input type="password" name="password" placeholder="🔒 Sua Senha Extraordinária" required>
+                    <input type="password" name="password" placeholder="🔒 Senha" required>
                 </div>
 
-                <button type="submit" class="btn-submit">Entrar no Sistema</button>
+                <div class="input-group">
+                    <input type="password" name="confirmPassword" placeholder="🔒 Confirmar senha" required>
+                </div>
+
+                <button type="submit" class="btn-submit">Confirmar Cadastro</button>
             </form>
 
-            <a href="/cadastro" class="btn-secondary">Cadastrar Novo Usuário</a>
-
-            <div class="footer-links">
-                <p>Esqueceu a senha? <a href="#">Clique aqui</a></p>
-                <p style="margin-top: 10px; color: #777;">Acesso restrito a funcionários!</p>
-            </div>
+            <a href="/" class="btn-secondary">Voltar para Login</a>
         </div>
     </div>
 
