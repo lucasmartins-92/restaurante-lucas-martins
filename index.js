@@ -37,6 +37,48 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+async function loadDashboardData() {
+    const [items] = await pool.query('SELECT * FROM items');
+    const [orders] = await pool.query('SELECT * FROM orders');
+    return { items, orders };
+}
+
+async function ensureItemsSchema() {
+    const [columns] = await pool.query(
+        `SELECT COLUMN_NAME
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = ?
+           AND TABLE_NAME = 'items'
+           AND COLUMN_NAME = 'price'`,
+        [dbConfig.database]
+    );
+
+    if (columns.length === 0) {
+        console.log('🛠️ [DATABASE] Adicionando coluna price à tabela items...');
+        await pool.query('ALTER TABLE items ADD COLUMN price DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER category');
+    }
+}
+
+function validateItemInput({ name, price, category }) {
+    const normalizedName = typeof name === 'string' ? name.trim() : '';
+    const normalizedCategory = typeof category === 'string' ? category.trim() : '';
+    const parsedPrice = Number(price);
+
+    if (!normalizedName) {
+        return { error: 'O nome não pode estar vazio.' };
+    }
+
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+        return { error: 'O preço da marmita deve ser um número positivo.' };
+    }
+
+    return {
+        name: normalizedName,
+        category: normalizedCategory || null,
+        price: parsedPrice
+    };
+}
+
 app.get('/', (req, res) => res.render('login', { error: null }));
 
 app.get('/cadastro', (req, res) => res.render('cadastro', { error: null }));
@@ -78,12 +120,47 @@ app.post('/cadastro', async (req, res) => {
     }
 });
 
-app.get('/dashboard', async (req, res) => {
-    const [items] = await pool.query('SELECT * FROM items');
-    const [orders] = await pool.query('SELECT * FROM orders');
-    res.render('dashboard', { items, orders });
+app.post('/add-item', async (req, res) => {
+    const validation = validateItemInput(req.body);
+
+    if (validation.error) {
+        const { items, orders } = await loadDashboardData();
+        return res.status(400).render('dashboard', {
+            items,
+            orders,
+            error: validation.error
+        });
+    }
+
+    try {
+        const { name, category, price } = validation;
+        await pool.query(
+            'INSERT INTO items (name, category, price) VALUES (?, ?, ?)',
+            [name, category, price]
+        );
+
+        res.redirect('/dashboard');
+    } catch (err) {
+        const { items, orders } = await loadDashboardData();
+        res.status(500).render('dashboard', {
+            items,
+            orders,
+            error: 'Erro ao cadastrar item.'
+        });
+    }
 });
 
-connectWithRetry().then(() => {
-    app.listen(3000, () => console.log('🚀 MARMITATECH PRO ONLINE NA PORTA 3000'));
+app.get('/dashboard', async (req, res) => {
+    const { items, orders } = await loadDashboardData();
+    res.render('dashboard', { items, orders, error: null });
 });
+
+connectWithRetry()
+    .then(async () => {
+        await ensureItemsSchema();
+        app.listen(3000, () => console.log('🚀 MARMITATECH PRO ONLINE NA PORTA 3000'));
+    })
+    .catch(err => {
+        console.error('❌ [DATABASE] Falha ao iniciar aplicação:', err);
+        process.exit(1);
+    });

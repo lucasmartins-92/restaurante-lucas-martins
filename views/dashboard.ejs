@@ -6,17 +6,22 @@
         body { font-family: sans-serif; padding: 20px; }
         .grid { display: flex; gap: 20px; }
         .card { border: 1px solid #ccc; padding: 15px; border-radius: 8px; width: 300px; }
+        .error { margin: 0 0 16px; padding: 12px; border-radius: 6px; background: #ffe3e3; color: #8b0000; }
     </style>
 </head>
 <body>
     <h1>Painel Administrativo - MarmitaTech</h1>
+    <% if (typeof error !== 'undefined' && error) { %>
+        <div class="error"><%= error %></div>
+    <% } %>
     <div class="grid">
         <div class="card">
-            <h3>Novo Item (Ingrediente)</h3>
+            <h3>Nova Marmita</h3>
             <form action="/add-item" method="POST">
-                <input type="text" name="name" placeholder="Nome (Ex: Batata Doce)" required><br><br>
-                <input type="text" name="category" placeholder="Categoria (Ex: Carboidrato)"><br><br>
-                <button type="submit">Cadastrar Item</button>
+                <input type="text" name="name" placeholder="Nome da marmita" required><br><br>
+                <input type="number" name="price" placeholder="Preço" step="0.01" min="0.01" required><br><br>
+                <input type="text" name="category" placeholder="Categoria (opcional)"><br><br>
+                <button type="submit">Cadastrar Marmita</button>
             </form>
         </div>
 
@@ -24,7 +29,7 @@
             <h3>Itens Cadastrados</h3>
             <ul>
                 <% items.forEach(item => { %>
-                    <li><%= item.name %> (<%= item.category %>)</li>
+                    <li><%= item.name %> - R$ <%= Number(item.price).toFixed(2) %> (<%= item.category || 'Sem categoria' %>)</li>
                 <% }) %>
             </ul>
         </div>

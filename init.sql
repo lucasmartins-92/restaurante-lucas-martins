@@ -11,7 +11,8 @@ CREATE TABLE users (
 CREATE TABLE items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    category VARCHAR(50)
+    category VARCHAR(50),
+    price DECIMAL(10,2) NOT NULL
 );
 
 CREATE TABLE orders (
@@ -20,4 +21,4 @@ CREATE TABLE orders (
     status VARCHAR(20) DEFAULT 'Aberto'
 );
 
-INSERT INTO items (name, category) VALUES ('Arroz Branco', 'Base'), ('Feijão Preto', 'Grão');
+INSERT INTO items (name, category, price) VALUES ('Arroz Branco', 'Base', 12.50), ('Feijão Preto', 'Grão', 10.00);
