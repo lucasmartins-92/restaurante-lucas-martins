@@ -39,7 +39,19 @@ app.set('views', path.join(__dirname, 'views'));
 
 async function loadDashboardData() {
     const [items] = await pool.query('SELECT * FROM items');
-    const [orders] = await pool.query('SELECT * FROM orders');
+    const [orders] = await pool.query(
+        `SELECT
+            orders.id,
+            orders.customer_name,
+            orders.status,
+            orders.item_id,
+            items.name AS item_name,
+            items.category AS item_category,
+            items.price AS item_price
+            FROM orders
+            LEFT JOIN items ON items.id = orders.item_id
+         ORDER BY orders.id DESC`
+    );
     return { items, orders };
 }
 
@@ -56,6 +68,22 @@ async function ensureItemsSchema() {
     if (columns.length === 0) {
         console.log('🛠️ [DATABASE] Adicionando coluna price à tabela items...');
         await pool.query('ALTER TABLE items ADD COLUMN price DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER category');
+    }
+}
+
+async function ensureOrdersSchema() {
+    const [columns] = await pool.query(
+        `SELECT COLUMN_NAME
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = ?
+           AND TABLE_NAME = 'orders'
+           AND COLUMN_NAME = 'item_id'`,
+        [dbConfig.database]
+    );
+
+    if (columns.length === 0) {
+        console.log('🛠️ [DATABASE] Adicionando coluna item_id à tabela orders...');
+        await pool.query('ALTER TABLE orders ADD COLUMN item_id INT NULL AFTER customer_name');
     }
 }
 
@@ -76,6 +104,24 @@ function validateItemInput({ name, price, category }) {
         name: normalizedName,
         category: normalizedCategory || null,
         price: parsedPrice
+    };
+}
+
+function validateOrderInput({ customer_name, item_id }) {
+    const normalizedCustomerName = typeof customer_name === 'string' ? customer_name.trim() : '';
+    const parsedItemId = Number(item_id);
+
+    if (!normalizedCustomerName) {
+        return { error: 'O nome do cliente não pode estar vazio.' };
+    }
+
+    if (!Number.isInteger(parsedItemId) || parsedItemId <= 0) {
+        return { error: 'Selecione uma marmita válida.' };
+    }
+
+    return {
+        customerName: normalizedCustomerName,
+        itemId: parsedItemId
     };
 }
 
@@ -150,6 +196,46 @@ app.post('/add-item', async (req, res) => {
     }
 });
 
+app.post('/orders', async (req, res) => {
+    const validation = validateOrderInput(req.body);
+
+    if (validation.error) {
+        const { items, orders } = await loadDashboardData();
+        return res.status(400).render('dashboard', {
+            items,
+            orders,
+            error: validation.error
+        });
+    }
+
+    try {
+        const { customerName, itemId } = validation;
+        const [items] = await pool.query('SELECT id FROM items WHERE id = ?', [itemId]);
+
+        if (items.length === 0) {
+            const dashboardData = await loadDashboardData();
+            return res.status(400).render('dashboard', {
+                ...dashboardData,
+                error: 'A marmita selecionada não existe.'
+            });
+        }
+
+        await pool.query(
+            'INSERT INTO orders (customer_name, item_id, status) VALUES (?, ?, ?)',
+            [customerName, itemId, 'Aberto']
+        );
+
+        res.redirect('/dashboard');
+    } catch (err) {
+        const { items, orders } = await loadDashboardData();
+        res.status(500).render('dashboard', {
+            items,
+            orders,
+            error: 'Erro ao registrar pedido.'
+        });
+    }
+});
+
 app.get('/dashboard', async (req, res) => {
     const { items, orders } = await loadDashboardData();
     res.render('dashboard', { items, orders, error: null });
@@ -158,6 +244,7 @@ app.get('/dashboard', async (req, res) => {
 connectWithRetry()
     .then(async () => {
         await ensureItemsSchema();
+        await ensureOrdersSchema();
         app.listen(3000, () => console.log('🚀 MARMITATECH PRO ONLINE NA PORTA 3000'));
     })
     .catch(err => {
