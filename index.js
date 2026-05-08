@@ -101,7 +101,7 @@ async function connectWithRetry() {
             await pool.query('SELECT 1');
             console.log('✅ [DATABASE] Conectado ao MySQL com sucesso!');
             return;
-        } catch (err) {
+        } catch (_err) {
             console.log(`⚠️ [DATABASE] Tentativa ${i}/10 falhou. Aguardando...`);
             await new Promise(res => setTimeout(res, 3000));
         }
@@ -263,7 +263,7 @@ app.post('/login', async (req, res) => {
             ...AUTH_PAGE_CONFIGS.login,
             error: 'Usuário ou senha inválidos.'
         });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).render('auth', {
             ...AUTH_PAGE_CONFIGS.login,
             error: 'Erro no banco. Tente novamente.'
@@ -318,7 +318,7 @@ app.post('/add-item', async (req, res) => {
         );
 
         res.redirect('/dashboard');
-    } catch (err) {
+    } catch (_err) {
         const dashboardData = await loadDashboardData();
         res.status(500).render('dashboard', {
             ...dashboardData,
@@ -356,7 +356,7 @@ app.post('/orders', async (req, res) => {
         );
 
         res.redirect('/dashboard');
-    } catch (err) {
+    } catch (_err) {
         const dashboardData = await loadDashboardData();
         res.status(500).render('dashboard', {
             ...dashboardData,
@@ -386,7 +386,7 @@ app.post('/orders/:id/advance', async (req, res) => {
         }
 
         res.redirect('/dashboard');
-    } catch (err) {
+    } catch (_err) {
         res.status(500).redirect('/dashboard');
     }
 });
