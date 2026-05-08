@@ -396,6 +396,44 @@ app.get('/dashboard', async (req, res) => {
     res.render('dashboard', { ...dashboardData, error: null });
 });
 
+app.get('/admin/export', async (req, res) => {
+    try {
+        const [orders] = await pool.query(
+            `SELECT
+                orders.id,
+                orders.customer_name,
+                orders.status,
+                items.name AS item_name,
+                items.price AS item_price
+            FROM orders
+            LEFT JOIN items ON items.id = orders.item_id
+            ORDER BY orders.id DESC`
+        );
+
+        // Gera CSV com BOM para abrir corretamente no Excel
+        let csv = '\uFEFF'; // BOM UTF-8
+        csv += 'ID,Cliente,Item,Preço,Status\n';
+
+        orders.forEach(order => {
+            const price = order.item_price != null ? `R$ ${Number(order.item_price).toFixed(2)}` : 'N/A';
+            const itemName = order.item_name || 'Marmita removida';
+
+            // Escapa aspas duplas em valores CSV
+            const escapedCustomerName = `"${order.customer_name.replace(/"/g, '""')}"`;
+            const escapedItemName = `"${itemName.replace(/"/g, '""')}"`;
+
+            csv += `${order.id},${escapedCustomerName},${escapedItemName},${price},${order.status}\n`;
+        });
+
+        // Define headers para download
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="relatorio-vendas-${new Date().toISOString().split('T')[0]}.csv"`);
+        res.send(csv);
+    } catch (_err) {
+        res.status(500).json({ error: 'Erro ao gerar relatório' });
+    }
+});
+
 connectWithRetry()
     .then(async () => {
         await ensureItemsSchema();
