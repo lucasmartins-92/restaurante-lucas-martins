@@ -1,78 +1,106 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MarmitaTech - Dashboard</title>
-    <style>
-        body { font-family: sans-serif; padding: 20px; background: #f7f7f2; color: #1f1f1f; }
-        .grid { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
-        .card { border: 1px solid #d9d9cf; background: #fff; padding: 15px; border-radius: 8px; width: 320px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04); }
-        .card h3 { margin-top: 0; }
-        .error { margin: 0 0 16px; padding: 12px; border-radius: 6px; background: #ffe3e3; color: #8b0000; }
-        .orders-list { list-style: none; padding: 0; margin: 0; }
-        .orders-list li { padding: 10px 0; border-bottom: 1px solid #ecebe3; }
-        .orders-list li:last-child { border-bottom: 0; }
-        select, input, button { width: 100%; box-sizing: border-box; }
-    </style>
+    <link rel="stylesheet" href="/css/dashboard.css">
+    <script src="/js/dashboard.js" defer></script>
 </head>
 <body>
-    <h1>Painel Administrativo - MarmitaTech</h1>
-    <% if (typeof error !== 'undefined' && error) { %>
-        <div class="error"><%= error %></div>
-    <% } %>
-    <div class="grid">
-        <div class="card">
-            <h3>Nova Marmita</h3>
-            <form action="/add-item" method="POST">
-                <input type="text" name="name" placeholder="Nome da marmita" required><br><br>
-                <input type="number" name="price" placeholder="Preço" step="0.01" min="0.01" required><br><br>
-                <input type="text" name="category" placeholder="Categoria (opcional)"><br><br>
-                <button type="submit">Cadastrar Marmita</button>
-            </form>
-        </div>
+    <div class="page-shell">
+        <header class="topline">
+            <div>
+                <h1>Painel Administrativo - MarmitaTech</h1>
+                <p>Gerencie o fluxo de produção da cozinha em tempo real.</p>
+            </div>
+        </header>
 
-        <div class="card">
-            <h3>Novo Pedido</h3>
-            <% if (items.length === 0) { %>
-                <p>Cadastre uma marmita antes de registrar pedidos.</p>
-            <% } else { %>
-                <form action="/orders" method="POST">
-                    <input type="text" name="customer_name" placeholder="Nome do cliente" required><br><br>
-                    <select name="item_id" required>
-                        <option value="">Selecione a marmita</option>
-                        <% items.forEach(item => { %>
-                            <option value="<%= item.id %>"><%= item.name %> - R$ <%= Number(item.price).toFixed(2) %></option>
-                        <% }) %>
-                    </select><br><br>
-                    <button type="submit">Registrar Pedido</button>
-                </form>
-            <% } %>
-        </div>
+        <% if (typeof error !== 'undefined' && error) { %>
+            <div class="error" role="alert" aria-live="polite"><%= error %></div>
+        <% } %>
 
-        <div class="card">
-            <h3>Itens Cadastrados</h3>
-            <ul>
-                <% items.forEach(item => { %>
-                    <li><%= item.name %> - R$ <%= Number(item.price).toFixed(2) %> (<%= item.category || 'Sem categoria' %>)</li>
+        <main aria-label="Painel administrativo">
+            <div class="grid">
+                <section class="card" aria-label="Nova marmita">
+                    <h3>Nova Marmita</h3>
+                    <form action="/add-item" method="POST">
+                        <input type="text" name="name" placeholder="Nome da marmita" aria-label="Nome da marmita" required>
+                        <input type="number" name="price" placeholder="Preço" step="0.01" min="0.01" aria-label="Preço da marmita" required>
+                        <input type="text" name="category" placeholder="Categoria (opcional)" aria-label="Categoria da marmita">
+                        <button type="submit">Cadastrar Marmita</button>
+                    </form>
+                </section>
+
+                <section class="card" aria-label="Novo pedido">
+                    <h3>Novo Pedido</h3>
+                    <% if (items.length === 0) { %>
+                        <p>Cadastre uma marmita antes de registrar pedidos.</p>
+                    <% } else { %>
+                        <form action="/orders" method="POST">
+                            <input type="text" name="customer_name" placeholder="Nome do cliente" aria-label="Nome do cliente" required>
+                            <select name="item_id" aria-label="Selecione a marmita" required>
+                                <option value="">Selecione a marmita</option>
+                                <% items.forEach(item => { %>
+                                    <option value="<%= item.id %>"><%= item.name %> - R$ <%= Number(item.price).toFixed(2) %></option>
+                                <% }) %>
+                            </select>
+                            <button type="submit">Registrar Pedido</button>
+                        </form>
+                    <% } %>
+                </section>
+
+                <section class="card" aria-label="Itens cadastrados">
+                    <h3>Itens Cadastrados</h3>
+                    <% if (items.length === 0) { %>
+                        <p class="helper">Nenhuma marmita cadastrada.</p>
+                    <% } else { %>
+                        <ul>
+                            <% items.forEach(item => { %>
+                                <li><%= item.name %> - R$ <%= Number(item.price).toFixed(2) %> (<%= item.category || 'Sem categoria' %>)</li>
+                            <% }) %>
+                        </ul>
+                    <% } %>
+                </section>
+            </div>
+
+            <h2>Fluxo de produção</h2>
+            <section class="board" aria-label="Quadro de pedidos por status">
+                <% ['Aberto', 'Cozinha', 'Entrega', 'Entregue'].forEach(status => { %>
+                    <section class="column" aria-label="<%= status %>">
+                        <div class="column-header">
+                            <h3><%= status %></h3>
+                            <span class="badge"><%= (ordersByStatus && ordersByStatus[status] ? ordersByStatus[status].length : 0) %></span>
+                        </div>
+
+                        <% const columnOrders = ordersByStatus && ordersByStatus[status] ? ordersByStatus[status] : []; %>
+                        <% if (columnOrders.length === 0) { %>
+                            <div class="empty-state">Sem pedidos nesta etapa.</div>
+                        <% } else { %>
+                            <div class="column-list">
+                                <% columnOrders.forEach(order => { %>
+                                    <article class="order-card">
+                                        <strong><%= order.customer_name %></strong>
+                                        <p class="order-meta">
+                                            <%= order.item_name || 'Marmita removida' %> -
+                                            <%= order.item_price != null ? `R$ ${Number(order.item_price).toFixed(2)}` : 'Preço indisponível' %>
+                                        </p>
+                                        <span class="order-status"><%= order.status %></span>
+                                        <% if (order.status !== 'Entregue') { %>
+                                            <form class="order-action" action="/orders/<%= order.id %>/advance" method="POST" data-advance-form>
+                                                <button type="submit" class="secondary-button" data-advance-button>Avançar status</button>
+                                            </form>
+                                        <% } else { %>
+                                            <p class="helper">Pedido concluído.</p>
+                                        <% } %>
+                                    </article>
+                                <% }) %>
+                            </div>
+                        <% } %>
+                    </section>
                 <% }) %>
-            </ul>
-        </div>
+            </section>
+        </main>
     </div>
-
-    <hr>
-    <h2>📦 Pedidos Ativos</h2>
-    <% if (orders.length === 0) { %>
-        <p><i>Nenhum pedido cadastrado ainda.</i></p>
-    <% } else { %>
-        <ul class="orders-list">
-            <% orders.forEach(order => { %>
-                <li>
-                    <strong><%= order.customer_name %></strong> pediu <%= order.item_name || 'Marmita removida' %>
-                    - <%= order.item_price != null ? `R$ ${Number(order.item_price).toFixed(2)}` : 'Preço indisponível' %>
-                    <br>
-                    Status: <%= order.status %>
-                </li>
-            <% }) %>
-        </ul>
-    <% } %>
 </body>
 </html>

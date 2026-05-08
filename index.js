@@ -6,6 +6,8 @@ const path = require('path');
 
 const app = express();
 
+const ORDER_STATUSES = ['Aberto', 'Cozinha', 'Entrega', 'Entregue'];
+
 const dbConfig = {
     host: process.env.DB_HOST || 'db',
     port: parseInt(process.env.DB_PORT) || 3306,
@@ -16,6 +18,80 @@ const dbConfig = {
 
 let pool;
 const BCRYPT_SALT_ROUNDS = 10;
+
+const AUTH_PAGE_CONFIGS = {
+    login: {
+        title: 'Login Premium - Podrão do Lucas',
+        cardLabel: 'Acesso ao sistema',
+        heading: 'Podrão do Lucas',
+        subtitle: 'O sabor autêntico na sua tela.',
+        formAction: '/login',
+        submitLabel: 'Entrar no Sistema',
+        secondaryHref: '/cadastro',
+        secondaryLabel: 'Cadastrar Novo Usuário',
+        fields: [
+            {
+                name: 'username',
+                type: 'text',
+                placeholder: 'Seu usuário',
+                ariaLabel: 'Seu usuário',
+                autocomplete: 'username'
+            },
+            {
+                name: 'password',
+                type: 'password',
+                placeholder: 'Sua senha',
+                ariaLabel: 'Sua senha',
+                autocomplete: 'current-password'
+            }
+        ],
+        showFooterLinks: true,
+        footerText: 'Acesso restrito a funcionários.',
+        footerLinkText: 'Clique aqui',
+        footerLinkHref: '#'
+    },
+    cadastro: {
+        title: 'Cadastro de Usuário - Podrão do Lucas',
+        cardLabel: 'Cadastro de usuário',
+        heading: 'Podrão do <span>Lucas</span>',
+        subtitle: 'Cadastro de novo usuário.',
+        formAction: '/cadastro',
+        submitLabel: 'Confirmar Cadastro',
+        secondaryHref: '/',
+        secondaryLabel: 'Voltar para Login',
+        fields: [
+            {
+                name: 'username',
+                type: 'text',
+                placeholder: 'Nome de usuário',
+                ariaLabel: 'Nome de usuário',
+                autocomplete: 'username'
+            },
+            {
+                name: 'password',
+                type: 'password',
+                placeholder: 'Senha',
+                ariaLabel: 'Senha',
+                autocomplete: 'new-password'
+            },
+            {
+                name: 'confirmPassword',
+                type: 'password',
+                placeholder: 'Confirmar senha',
+                ariaLabel: 'Confirmar senha',
+                autocomplete: 'new-password'
+            }
+        ],
+        showFooterLinks: false
+    }
+};
+
+function renderAuthPage(res, pageKey, error = null) {
+    return res.render('auth', {
+        ...AUTH_PAGE_CONFIGS[pageKey],
+        error
+    });
+}
 
 async function connectWithRetry() {
     console.log('🔍 [INFRA] Tentando conectar ao MySQL...');
@@ -34,6 +110,11 @@ async function connectWithRetry() {
 }
 
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public'), {
+    maxAge: '1d',
+    etag: true,
+    lastModified: true
+}));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -50,9 +131,20 @@ async function loadDashboardData() {
             items.price AS item_price
             FROM orders
             LEFT JOIN items ON items.id = orders.item_id
-         ORDER BY orders.id DESC`
+         ORDER BY FIELD(orders.status, 'Aberto', 'Cozinha', 'Entrega', 'Entregue'), orders.id DESC`
     );
-    return { items, orders };
+
+    const ordersByStatus = ORDER_STATUSES.reduce((columns, status) => {
+        columns[status] = [];
+        return columns;
+    }, {});
+
+    orders.forEach(order => {
+        const status = ORDER_STATUSES.includes(order.status) ? order.status : 'Aberto';
+        ordersByStatus[status].push(order);
+    });
+
+    return { items, orders, ordersByStatus };
 }
 
 async function ensureItemsSchema() {
@@ -84,6 +176,20 @@ async function ensureOrdersSchema() {
     if (columns.length === 0) {
         console.log('🛠️ [DATABASE] Adicionando coluna item_id à tabela orders...');
         await pool.query('ALTER TABLE orders ADD COLUMN item_id INT NULL AFTER customer_name');
+    }
+
+    const [statusColumns] = await pool.query(
+        `SELECT COLUMN_NAME
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = ?
+           AND TABLE_NAME = 'orders'
+           AND COLUMN_NAME = 'status'`,
+        [dbConfig.database]
+    );
+
+    if (statusColumns.length === 0) {
+        console.log('🛠️ [DATABASE] Adicionando coluna status à tabela orders...');
+        await pool.query("ALTER TABLE orders ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'Aberto' AFTER item_id");
     }
 }
 
@@ -125,25 +231,43 @@ function validateOrderInput({ customer_name, item_id }) {
     };
 }
 
-app.get('/', (req, res) => res.render('login', { error: null }));
+function getNextOrderStatus(currentStatus) {
+    const currentIndex = ORDER_STATUSES.indexOf(currentStatus);
+    if (currentIndex < 0 || currentIndex === ORDER_STATUSES.length - 1) {
+        return currentStatus || ORDER_STATUSES[0];
+    }
 
-app.get('/cadastro', (req, res) => res.render('cadastro', { error: null }));
+    return ORDER_STATUSES[currentIndex + 1];
+}
+
+app.get('/', (req, res) => renderAuthPage(res, 'login'));
+
+app.get('/cadastro', (req, res) => renderAuthPage(res, 'cadastro'));
 
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
         const [rows] = await pool.query('SELECT password FROM users WHERE username = ?', [username]);
         if (rows.length === 0) {
-            return res.status(401).render('login', { error: 'Usuário ou senha inválidos.' });
+            return res.status(401).render('auth', {
+                ...AUTH_PAGE_CONFIGS.login,
+                error: 'Usuário ou senha inválidos.'
+            });
         }
 
         const storedPassword = rows[0].password;
         const isValidPassword = await bcrypt.compare(password, storedPassword);
 
         if (isValidPassword) res.redirect('/dashboard');
-        else res.status(401).render('login', { error: 'Usuário ou senha inválidos.' });
+        else res.status(401).render('auth', {
+            ...AUTH_PAGE_CONFIGS.login,
+            error: 'Usuário ou senha inválidos.'
+        });
     } catch (err) {
-        res.status(500).render('login', { error: 'Erro no banco. Tente novamente.' });
+        res.status(500).render('auth', {
+            ...AUTH_PAGE_CONFIGS.login,
+            error: 'Erro no banco. Tente novamente.'
+        });
     }
 });
 
@@ -151,7 +275,10 @@ app.post('/cadastro', async (req, res) => {
     const { username, password, confirmPassword } = req.body;
 
     if (password !== confirmPassword) {
-        return res.status(400).render('cadastro', { error: 'As senhas não conferem.' });
+        return res.status(400).render('auth', {
+            ...AUTH_PAGE_CONFIGS.cadastro,
+            error: 'As senhas não conferem.'
+        });
     }
 
     try {
@@ -160,9 +287,15 @@ app.post('/cadastro', async (req, res) => {
         res.redirect('/');
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).render('cadastro', { error: 'Usuário já existe.' });
+            return res.status(409).render('auth', {
+                ...AUTH_PAGE_CONFIGS.cadastro,
+                error: 'Usuário já existe.'
+            });
         }
-        res.status(500).render('cadastro', { error: 'Erro ao cadastrar usuário.' });
+        res.status(500).render('auth', {
+            ...AUTH_PAGE_CONFIGS.cadastro,
+            error: 'Erro ao cadastrar usuário.'
+        });
     }
 });
 
@@ -170,10 +303,9 @@ app.post('/add-item', async (req, res) => {
     const validation = validateItemInput(req.body);
 
     if (validation.error) {
-        const { items, orders } = await loadDashboardData();
+        const dashboardData = await loadDashboardData();
         return res.status(400).render('dashboard', {
-            items,
-            orders,
+            ...dashboardData,
             error: validation.error
         });
     }
@@ -187,10 +319,9 @@ app.post('/add-item', async (req, res) => {
 
         res.redirect('/dashboard');
     } catch (err) {
-        const { items, orders } = await loadDashboardData();
+        const dashboardData = await loadDashboardData();
         res.status(500).render('dashboard', {
-            items,
-            orders,
+            ...dashboardData,
             error: 'Erro ao cadastrar item.'
         });
     }
@@ -200,10 +331,9 @@ app.post('/orders', async (req, res) => {
     const validation = validateOrderInput(req.body);
 
     if (validation.error) {
-        const { items, orders } = await loadDashboardData();
+        const dashboardData = await loadDashboardData();
         return res.status(400).render('dashboard', {
-            items,
-            orders,
+            ...dashboardData,
             error: validation.error
         });
     }
@@ -227,18 +357,43 @@ app.post('/orders', async (req, res) => {
 
         res.redirect('/dashboard');
     } catch (err) {
-        const { items, orders } = await loadDashboardData();
+        const dashboardData = await loadDashboardData();
         res.status(500).render('dashboard', {
-            items,
-            orders,
+            ...dashboardData,
             error: 'Erro ao registrar pedido.'
         });
     }
 });
 
+app.post('/orders/:id/advance', async (req, res) => {
+    const orderId = Number(req.params.id);
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+        return res.status(400).redirect('/dashboard');
+    }
+
+    try {
+        const [rows] = await pool.query('SELECT status FROM orders WHERE id = ?', [orderId]);
+
+        if (rows.length === 0) {
+            return res.status(404).redirect('/dashboard');
+        }
+
+        const nextStatus = getNextOrderStatus(rows[0].status);
+
+        if (nextStatus !== rows[0].status) {
+            await pool.query('UPDATE orders SET status = ? WHERE id = ?', [nextStatus, orderId]);
+        }
+
+        res.redirect('/dashboard');
+    } catch (err) {
+        res.status(500).redirect('/dashboard');
+    }
+});
+
 app.get('/dashboard', async (req, res) => {
-    const { items, orders } = await loadDashboardData();
-    res.render('dashboard', { items, orders, error: null });
+    const dashboardData = await loadDashboardData();
+    res.render('dashboard', { ...dashboardData, error: null });
 });
 
 connectWithRetry()
