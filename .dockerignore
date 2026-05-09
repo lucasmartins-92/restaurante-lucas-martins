@@ -1,4 +1,14 @@
 node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+.env.*
+.vscode/
+*.log
+dist
+coverage
+sonar_hotspots.jsonnode_modules
 .git
 *.md
 .env*

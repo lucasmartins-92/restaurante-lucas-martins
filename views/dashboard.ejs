@@ -55,11 +55,22 @@
                     <% if (items.length === 0) { %>
                         <p class="helper">Nenhuma marmita cadastrada.</p>
                     <% } else { %>
-                        <ul>
+                        <div class="items-list">
                             <% items.forEach(item => { %>
-                                <li><%= item.name %> - R$ <%= Number(item.price).toFixed(2) %> (<%= item.category || 'Sem categoria' %>)</li>
+                                <div class="item-row">
+                                    <div class="item-info">
+                                        <strong><%= item.name %></strong>
+                                        <span class="item-details">R$ <%= Number(item.price).toFixed(2) %> • <%= item.category || 'Sem categoria' %></span>
+                                    </div>
+                                    <div class="item-actions">
+                                        <button class="item-edit-btn" type="button" data-item-id="<%= item.id %>" data-item-name="<%= item.name %>" data-item-price="<%= item.price %>" data-item-category="<%= item.category || '' %>">✏️ Editar</button>
+                                        <form action="/items/<%= item.id %>/delete" method="POST" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja deletar este item?');">
+                                            <button type="submit" class="item-delete-btn">🗑️ Deletar</button>
+                                        </form>
+                                    </div>
+                                </div>
                             <% }) %>
-                        </ul>
+                        </div>
                     <% } %>
                 </section>
 
@@ -109,6 +120,77 @@
                 <% }) %>
             </section>
         </main>
+
+        <!-- Modal de Edição de Item -->
+        <div id="editModal" class="modal" role="dialog" aria-labelledby="editModalTitle" aria-hidden="true">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="editModalTitle">Editar Marmita</h2>
+                    <button type="button" class="modal-close" data-close-modal>&times;</button>
+                </div>
+                <form id="editForm" method="POST">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="editName">Nome da marmita</label>
+                            <input type="text" id="editName" name="name" placeholder="Nome da marmita" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editPrice">Preço</label>
+                            <input type="number" id="editPrice" name="price" placeholder="Preço" step="0.01" min="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editCategory">Categoria (opcional)</label>
+                            <input type="text" id="editCategory" name="category" placeholder="Categoria (opcional)">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="secondary-button" data-close-modal>Cancelar</button>
+                        <button type="submit" class="primary-button">Salvar Alterações</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
+
+    <script>
+        const modal = document.getElementById('editModal');
+        const editForm = document.getElementById('editForm');
+        const editButtons = document.querySelectorAll('.item-edit-btn');
+        const closeButtons = document.querySelectorAll('[data-close-modal]');
+
+        editButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const itemId = btn.dataset.itemId;
+                const itemName = btn.dataset.itemName;
+                const itemPrice = btn.dataset.itemPrice;
+                const itemCategory = btn.dataset.itemCategory;
+
+                document.getElementById('editName').value = itemName;
+                document.getElementById('editPrice').value = itemPrice;
+                document.getElementById('editCategory').value = itemCategory;
+                editForm.action = `/items/${itemId}/edit`;
+
+                modal.setAttribute('aria-hidden', 'false');
+                modal.style.display = 'block';
+                document.body.style.overflow = 'hidden';
+            });
+        });
+
+        closeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                modal.setAttribute('aria-hidden', 'true');
+                modal.style.display = 'none';
+                document.body.style.overflow = 'auto';
+            });
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.setAttribute('aria-hidden', 'true');
+                modal.style.display = 'none';
+                document.body.style.overflow = 'auto';
+            }
+        });
+    </script>
 </body>
 </html>

@@ -1,4 +1,11 @@
-# Dependencies
+node_modules/
+sonar_hotspots.json
+.env
+.env.*
+.vscode/
+*.log
+dist/
+coverage/# Dependencies
 node_modules/
 
 # Environment variables

@@ -5,6 +5,8 @@ const bcrypt = require('bcrypt');
 const path = require('path');
 
 const app = express();
+// Ensure header that exposes framework/version is disabled
+app.disable('x-powered-by');
 
 const ORDER_STATUSES = ['Aberto', 'Cozinha', 'Entrega', 'Entregue'];
 
@@ -323,6 +325,72 @@ app.post('/add-item', async (req, res) => {
         res.status(500).render('dashboard', {
             ...dashboardData,
             error: 'Erro ao cadastrar item.'
+        });
+    }
+});
+
+app.post('/items/:id/edit', async (req, res) => {
+    const itemId = Number(req.params.id);
+    const validation = validateItemInput(req.body);
+
+    if (!Number.isInteger(itemId) || itemId <= 0) {
+        return res.status(400).redirect('/dashboard');
+    }
+
+    if (validation.error) {
+        const dashboardData = await loadDashboardData();
+        return res.status(400).render('dashboard', {
+            ...dashboardData,
+            error: validation.error
+        });
+    }
+
+    try {
+        const { name, category, price } = validation;
+        await pool.query(
+            'UPDATE items SET name = ?, category = ?, price = ? WHERE id = ?',
+            [name, category, price, itemId]
+        );
+
+        res.redirect('/dashboard');
+    } catch (_err) {
+        const dashboardData = await loadDashboardData();
+        res.status(500).render('dashboard', {
+            ...dashboardData,
+            error: 'Erro ao editar item.'
+        });
+    }
+});
+
+app.post('/items/:id/delete', async (req, res) => {
+    const itemId = Number(req.params.id);
+
+    if (!Number.isInteger(itemId) || itemId <= 0) {
+        return res.status(400).redirect('/dashboard');
+    }
+
+    try {
+        // Verifica se o item está vinculado a pedidos
+        const [orders] = await pool.query(
+            'SELECT id FROM orders WHERE item_id = ? LIMIT 1',
+            [itemId]
+        );
+
+        if (orders.length > 0) {
+            const dashboardData = await loadDashboardData();
+            return res.status(400).render('dashboard', {
+                ...dashboardData,
+                error: 'Não é possível deletar um item que possui pedidos associados.'
+            });
+        }
+
+        await pool.query('DELETE FROM items WHERE id = ?', [itemId]);
+        res.redirect('/dashboard');
+    } catch (_err) {
+        const dashboardData = await loadDashboardData();
+        res.status(500).render('dashboard', {
+            ...dashboardData,
+            error: 'Erro ao deletar item.'
         });
     }
 });
