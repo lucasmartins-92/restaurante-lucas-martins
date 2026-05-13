@@ -1,13 +1,14 @@
 # Stage 1: Build (install production dependencies)
 FROM node:18-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
+COPY --chown=node:node package*.json ./
 RUN npm config set registry https://registry.yarnpkg.com/ \
-    && npm ci --only=production --no-audit --no-fund
+  && npm ci --only=production --no-audit --no-fund --ignore-scripts
 
 # Copy sources and remove any local artifacts that should not go into the final image
-COPY . .
-RUN rm -f sonar_hotspots.json || true
+COPY --chown=node:node index.js ./
+COPY --chown=node:node public ./public
+COPY --chown=node:node views ./views
 
 # Stage 2: Runtime (minimal image with non-root user)
 FROM node:18-alpine AS runtime
