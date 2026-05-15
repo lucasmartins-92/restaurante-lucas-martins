@@ -1,12 +1,15 @@
-name: integracao continua
+name: integracao continua e staging
 
 on:
   push:
-    branches: ["develop"]
+    branches: ["develop", "staging"]
   pull_request:
     branches: ["develop"]
 
 jobs:
+  # ==========================================
+  # ETAPAS EXISTENTES (Completas)
+  # ==========================================
   estagio_build:
     runs-on: ubuntu-latest
     steps:
@@ -85,8 +88,9 @@ jobs:
 
   job_sonar:
     needs: estagio_lint
+    # Restringe este job específico de Sonar básico apenas para a develop
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
@@ -109,9 +113,79 @@ jobs:
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
         env:
-          SONAR_TOKEN: ${{ secrets.TOKEN_SONARQUBE }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: "https://devsecops.dcotech.com.br"
         with:
           # Reforça a branch nos argumentos da execução
           args: >
             -Dsonar.branch.name=${{ github.ref_name }}
+
+  # ==========================================
+  # ETAPAS DE STAGING (Esqueleto)
+  # ==========================================
+  
+  job_release_docker:
+    needs: estagio_lint
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Login no Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build e Push da Imagem
+        uses: docker/build-push-action@v4
+        env:
+          IMAGE: ${{ secrets.REGISTRY_URL }}/${{ github.repository }}:${{ github.sha }}
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}
+
+      - name: Export image name
+        id: set-image
+        run: echo "image=${{ secrets.REGISTRY_URL }}/${{ github.repository }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+    outputs:
+      image: ${{ steps.set-image.outputs.image }}
+
+  job_trivy_sonar:
+    needs: job_release_docker
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código para o Sonar
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Login no Registry (para Trivy)
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Scan de Segurança com Trivy (imagem)
+        uses: aquasecurity/trivy-action@v1
+        with:
+          image-ref: ${{ needs.job_release_docker.outputs.image }}
+          format: json
+          output: trivy-report.json
+
+      - name: SonarQube lendo o Trivy (External Issues)
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: "https://devsecops.dcotech.com.br"
+        with:
+          args: >
+            -Dsonar.branch.name=${{ github.ref_name }}
+            -Dsonar.externalIssuesReportPaths=trivy-report.json
