@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/css/auth.css">
+</head>
+<body>
+    <main class="login-shell">
+        <section class="login-card" aria-label="<%= cardLabel %>">
+            <div class="banner-frame">
+                <img src="https://assets.unileversolutions.com/recipes-v2/230453.jpg"
+                     alt="Sanduíche Gourmet Detalhado"
+                     class="banner-img">
+            </div>
+
+            <div class="form-content">
+                <div class="brand-header">
+                    <h2><%= heading %></h2>
+                    <p class="brand-subtitle"><%= subtitle %></p>
+                </div>
+
+                <% if (error) { %>
+                    <div class="error-message" role="alert" aria-live="polite"><%= error %></div>
+                <% } %>
+
+                <form action="<%= formAction %>" method="POST">
+                    <% fields.forEach(field => { %>
+                        <div class="input-group">
+                            <input
+                                type="<%= field.type %>"
+                                name="<%= field.name %>"
+                                placeholder="<%= field.placeholder %>"
+                                aria-label="<%= field.ariaLabel %>"
+                                autocomplete="<%= field.autocomplete %>"
+                                required>
+                        </div>
+                    <% }) %>
+
+                    <button type="submit" class="btn-submit"><%= submitLabel %></button>
+                </form>
+
+                <a href="<%= secondaryHref %>" class="btn-secondary"><%= secondaryLabel %></a>
+
+                <% if (showFooterLinks) { %>
+                    <div class="footer-links">
+                        <p>Esqueceu a senha? <a href="<%= footerLinkHref %>"><%= footerLinkText %></a></p>
+                        <p class="footer-note"><%= footerText %></p>
+                    </div>
+                <% } %>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

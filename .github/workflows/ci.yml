@@ -1,0 +1,191 @@
+name: integracao continua e staging
+
+on:
+  push:
+    branches: ["develop", "staging"]
+  pull_request:
+    branches: ["develop"]
+
+jobs:
+  # ==========================================
+  # ETAPAS EXISTENTES (Completas)
+  # ==========================================
+  estagio_build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          package-manager-cache: false
+
+      - name: Gerar lockfile temporário
+        run: npm install --package-lock-only
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Verificar sintaxe de todos os arquivos JS
+        run: |
+          find . -type f -name "*.js" \
+            ! -path "./node_modules/*" \
+            ! -path "./.git/*" \
+            ! -path "./dist/*" \
+            -exec node --check {} \;
+
+  estagio_lint:
+    runs-on: ubuntu-latest
+    needs: estagio_build
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          package-manager-cache: false
+
+      - name: Gerar lockfile temporário
+        run: npm install --package-lock-only
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Instalar dependências temporárias do lint
+        run: npm install --no-save eslint globals
+
+      - name: Criar configuração temporária do ESLint
+        run: |
+          cat > eslint.config.js <<'EOF'
+          const globals = require("globals");
+
+          module.exports = [
+            {
+              files: ["**/*.js"],
+              ignores: ["node_modules/**", ".git/**", "dist/**"],
+              languageOptions: {
+                ecmaVersion: 2021,
+                sourceType: "commonjs",
+                globals: {
+                  ...globals.node,
+                  ...globals.commonjs
+                }
+              },
+              rules: {
+                "no-unused-vars": "warn",
+                "no-undef": "error"
+              }
+            }
+          ];
+          EOF
+
+      - name: Rodar lint
+        run: npx eslint .
+
+  job_sonar:
+    needs: estagio_lint
+    # Restringe este job específico de Sonar básico apenas para a develop
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Essencial para o Sonar ler o histórico de branches
+
+      - name: Criar sonar-project.properties dinâmico
+        run: |
+          # Define o nome do repo e a branch dinamicamente
+          echo "sonar.projectKey=${{ github.event.repository.name }}" > sonar-project.properties
+          echo "sonar.projectName=${{ github.event.repository.name }}" >> sonar-project.properties
+          echo "sonar.branch.name=${{ github.ref_name }}" >> sonar-project.properties
+          echo "sonar.sources=." >> sonar-project.properties
+          echo "sonar.sourceEncoding=UTF-8" >> sonar-project.properties
+          echo "sonar.exclusions=node_modules/**,.git/**,.github/**,coverage/**,dist/**" >> sonar-project.properties
+
+      - name: Exibir configuração do Sonar
+        run: cat sonar-project.properties
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.TOKEN_SONARQUBE }}
+          SONAR_HOST_URL: "https://devsecops.dcotech.com.br"
+        with:
+          # Reforça a branch nos argumentos da execução
+          args: >
+            -Dsonar.branch.name=${{ github.ref_name }}
+
+  # ==========================================
+  # ETAPAS DE STAGING (Esqueleto)
+  # ==========================================
+  
+  job_release_docker:
+    needs: estagio_lint
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Login no Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build e Push da Imagem
+        uses: docker/build-push-action@v4
+        env:
+          IMAGE: ${{ secrets.REGISTRY_URL }}/${{ github.repository }}:${{ github.sha }}
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}
+
+      - name: Export image name
+        id: set-image
+        run: echo "image=${{ secrets.REGISTRY_URL }}/${{ github.repository }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+    outputs:
+      image: ${{ steps.set-image.outputs.image }}
+
+  job_trivy_sonar:
+    needs: job_release_docker
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código para o Sonar
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Login no Registry (para Trivy)
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Scan de Segurança com Trivy (imagem)
+        uses: aquasecurity/trivy-action@v1
+        with:
+          image-ref: ${{ needs.job_release_docker.outputs.image }}
+          format: json
+          output: trivy-report.json
+
+      - name: SonarQube lendo o Trivy (External Issues)
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.TOKEN_SONARQUBE }}
+          SONAR_HOST_URL: "https://devsecops.dcotech.com.br"
+        with:
+          args: >
+            -Dsonar.branch.name=${{ github.ref_name }}
+            -Dsonar.externalIssuesReportPaths=trivy-report.json
