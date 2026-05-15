@@ -146,7 +146,96 @@ async function loadDashboardData() {
         ordersByStatus[status].push(order);
     });
 
-    return { items, orders, ordersByStatus };
+    // Inclui métricas financeiras do mês corrente
+    let financeMetrics = {};
+    try {
+        financeMetrics = await computeMonthlyFinance();
+    } catch (err) {
+        console.log('Erro ao calcular métricas financeiras:', err && err.message ? err.message : err);
+        financeMetrics = {
+            totalValueSold: 0,
+            numberOfSales: 0,
+            totalItemsSold: 0,
+            averageItemsPerSale: 0,
+            topProducts: [],
+            leastProducts: []
+        };
+    }
+
+    return { items, orders, ordersByStatus, financeMetrics };
+}
+
+async function computeMonthlyFinance() {
+    // Verifica se existe created_at na tabela orders
+    const [cols] = await pool.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'created_at'`,
+        [dbConfig.database]
+    );
+
+    const hasCreatedAt = cols.length > 0;
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+
+    const dateFilter = hasCreatedAt ? 'AND MONTH(orders.created_at)=? AND YEAR(orders.created_at)=?' : '';
+
+    const summaryParams = hasCreatedAt ? ['Entregue', month, year] : ['Entregue'];
+
+    const [summaryRows] = await pool.query(
+        `SELECT
+            COUNT(orders.id) AS num_sales,
+            SUM(IF(items.price IS NULL, 0, items.price)) AS total_value,
+            SUM(IF(items.id IS NOT NULL, 1, 0)) AS total_items_sold
+         FROM orders
+         LEFT JOIN items ON items.id = orders.item_id
+         WHERE orders.status = ? ${dateFilter}`,
+        summaryParams
+    );
+
+    const summary = summaryRows[0] || { num_sales: 0, total_value: 0, total_items_sold: 0 };
+
+    const dateWhereSub = hasCreatedAt ? 'AND MONTH(o.created_at)=? AND YEAR(o.created_at)=?' : '';
+    const subParams = hasCreatedAt ? [month, year] : [];
+
+    const [topRows] = await pool.query(
+        `SELECT i.id, i.name, COALESCE(c.cnt,0) AS sold_count
+         FROM items i
+         LEFT JOIN (
+             SELECT item_id, COUNT(*) AS cnt
+             FROM orders o
+             WHERE o.status = 'Entregue' ${dateWhereSub} AND item_id IS NOT NULL
+             GROUP BY item_id
+         ) c ON c.item_id = i.id
+         ORDER BY sold_count DESC, i.name ASC
+         LIMIT 5`,
+        subParams
+    );
+
+    const [leastRows] = await pool.query(
+        `SELECT i.id, i.name, COALESCE(c.cnt,0) AS sold_count
+         FROM items i
+         LEFT JOIN (
+             SELECT item_id, COUNT(*) AS cnt
+             FROM orders o
+             WHERE o.status = 'Entregue' ${dateWhereSub} AND item_id IS NOT NULL
+             GROUP BY item_id
+         ) c ON c.item_id = i.id
+         ORDER BY sold_count ASC, i.name ASC
+         LIMIT 5`,
+        subParams
+    );
+
+    const averageItemsPerSale = summary.num_sales > 0 ? (Number(summary.total_items_sold) / Number(summary.num_sales)) : 0;
+
+    return {
+        totalValueSold: Number(summary.total_value || 0),
+        numberOfSales: Number(summary.num_sales || 0),
+        totalItemsSold: Number(summary.total_items_sold || 0),
+        averageItemsPerSale: Number(averageItemsPerSale.toFixed(2)),
+        topProducts: topRows,
+        leastProducts: leastRows,
+        period: { month, year }
+    };
 }
 
 async function ensureItemsSchema() {

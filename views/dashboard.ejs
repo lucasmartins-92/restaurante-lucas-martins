@@ -8,11 +8,40 @@
     <script src="/js/dashboard.js" defer></script>
 </head>
 <body>
+    <%
+        const statusList = ['Aberto', 'Cozinha', 'Entrega', 'Entregue'];
+        const safeItems = Array.isArray(items) ? items : [];
+        const safeOrders = Array.isArray(orders) ? orders : [];
+        const safeOrdersByStatus = statusList.reduce((acc, status) => {
+            acc[status] = ordersByStatus && Array.isArray(ordersByStatus[status]) ? ordersByStatus[status] : [];
+            return acc;
+        }, {});
+        const fm = financeMetrics || {};
+        const recentOrders = [...safeOrders].sort((left, right) => Number(right.id || 0) - Number(left.id || 0)).slice(0, 8);
+        const totalItems = safeItems.length;
+        const totalOrders = safeOrders.length;
+        const openOrders = safeOrdersByStatus['Aberto'].length;
+        const kitchenOrders = safeOrdersByStatus['Cozinha'].length;
+        const deliveryOrders = safeOrdersByStatus['Entrega'].length;
+        const deliveredOrders = safeOrdersByStatus['Entregue'].length;
+        const averageItemsPerSale = Number(fm.averageItemsPerSale || 0).toFixed(2);
+        const financeTop = Array.isArray(fm.topProducts) ? fm.topProducts : [];
+        const financeLeast = Array.isArray(fm.leastProducts) ? fm.leastProducts : [];
+        const totalRevenue = Number(fm.totalValueSold || 0).toFixed(2);
+        const totalSales = Number(fm.numberOfSales || 0);
+        const totalItemsSold = Number(fm.totalItemsSold || 0);
+    %>
     <div class="page-shell">
-        <header class="topline">
-            <div>
+        <header class="dashboard-hero">
+            <div class="dashboard-hero__copy">
+                <p class="eyebrow">Painel administrativo</p>
                 <h1>Painel Administrativo - MarmitaTech</h1>
-                <p>Gerencie o fluxo de produção da cozinha em tempo real.</p>
+                <p>Uma leitura única da operação: pedidos, cardápio, produção e finanças em um layout mais linear e objetivo.</p>
+            </div>
+
+            <div class="dashboard-hero__meta">
+                <div class="hero-chip">Fluxo em tempo real</div>
+                <div class="hero-chip hero-chip--soft"><%= totalOrders %> pedidos rastreados</div>
             </div>
         </header>
 
@@ -20,104 +49,299 @@
             <div class="error" role="alert" aria-live="polite"><%= error %></div>
         <% } %>
 
-        <main aria-label="Painel administrativo">
-            <div class="grid">
-                <section class="card" aria-label="Nova marmita">
-                    <h3>Nova Marmita</h3>
-                    <form action="/add-item" method="POST">
+        <main class="dashboard-layout" aria-label="Painel administrativo">
+            <section class="summary-grid" aria-label="Resumo executivo">
+                <article class="summary-card">
+                    <span class="summary-label">Itens cadastrados</span>
+                    <strong class="summary-value"><%= totalItems %></strong>
+                    <span class="summary-note">Cardápio disponível para pedidos</span>
+                </article>
+
+                <article class="summary-card">
+                    <span class="summary-label">Pedidos em aberto</span>
+                    <strong class="summary-value"><%= openOrders %></strong>
+                    <span class="summary-note">Aguardando início de produção</span>
+                </article>
+
+                <article class="summary-card">
+                    <span class="summary-label">Em operação</span>
+                    <strong class="summary-value"><%= kitchenOrders + deliveryOrders %></strong>
+                    <span class="summary-note">Cozinha e entrega ativas</span>
+                </article>
+
+                <article class="summary-card">
+                    <span class="summary-label">Pedidos entregues</span>
+                    <strong class="summary-value"><%= deliveredOrders %></strong>
+                    <span class="summary-note">Fluxo concluído</span>
+                </article>
+
+                <article class="summary-card summary-card--accent">
+                    <span class="summary-label">Faturamento do mês</span>
+                    <strong class="summary-value">R$ <%= totalRevenue %></strong>
+                    <span class="summary-note"><%= totalSales %> vendas | média de <%= averageItemsPerSale %> itens por venda</span>
+                </article>
+            </section>
+
+            <section class="dashboard-grid dashboard-grid--forms" aria-label="Operações principais">
+                <article class="card panel-card">
+                    <div class="section-heading">
+                        <div>
+                            <p class="section-kicker">Cadastro</p>
+                            <h2>Novo ingrediente</h2>
+                        </div>
+                    </div>
+                    <form action="/add-item" method="POST" class="stack-form">
                         <input type="text" name="name" placeholder="Nome da marmita" aria-label="Nome da marmita" required>
                         <input type="number" name="price" placeholder="Preço" step="0.01" min="0.01" aria-label="Preço da marmita" required>
                         <input type="text" name="category" placeholder="Categoria (opcional)" aria-label="Categoria da marmita">
-                        <button type="submit">Cadastrar Marmita</button>
+                        <button type="submit">Cadastrar ingrediente</button>
                     </form>
-                </section>
+                </article>
 
-                <section class="card" aria-label="Novo pedido">
-                    <h3>Novo Pedido</h3>
-                    <% if (items.length === 0) { %>
-                        <p>Cadastre uma marmita antes de registrar pedidos.</p>
+                <article class="card panel-card">
+                    <div class="section-heading">
+                        <div>
+                            <p class="section-kicker">Operação</p>
+                            <h2>Novo pedido</h2>
+                        </div>
+                    </div>
+
+                    <% if (safeItems.length === 0) { %>
+                        <p class="helper">Cadastre um ingrediente antes de registrar pedidos.</p>
                     <% } else { %>
-                        <form action="/orders" method="POST">
+                        <form action="/orders" method="POST" class="stack-form">
                             <input type="text" name="customer_name" placeholder="Nome do cliente" aria-label="Nome do cliente" required>
                             <select name="item_id" aria-label="Selecione a marmita" required>
-                                <option value="">Selecione a marmita</option>
-                                <% items.forEach(item => { %>
+                                <option value="">Selecione o ingrediente</option>
+                                <% safeItems.forEach(item => { %>
                                     <option value="<%= item.id %>"><%= item.name %> - R$ <%= Number(item.price).toFixed(2) %></option>
                                 <% }) %>
                             </select>
-                            <button type="submit">Registrar Pedido</button>
+                            <button type="submit">Registrar pedido</button>
                         </form>
                     <% } %>
-                </section>
+                </article>
 
-                <section class="card" aria-label="Itens cadastrados">
-                    <h3>Itens Cadastrados</h3>
-                    <% if (items.length === 0) { %>
-                        <p class="helper">Nenhuma marmita cadastrada.</p>
+                <article class="card panel-card">
+                    <div class="section-heading">
+                        <div>
+                            <p class="section-kicker">Relatórios</p>
+                            <h2>Exportação e controle</h2>
+                        </div>
+                    </div>
+                    <p class="helper">Exporte o histórico para análise financeira e conferência operacional.</p>
+                    <a href="/admin/export" class="download-button" download>
+                        📊 Baixar relatório CSV
+                    </a>
+                </article>
+            </section>
+
+            <section class="dashboard-grid dashboard-grid--tables" aria-label="Gestão de cadastros e pedidos">
+                <article class="card panel-card panel-card--wide" aria-label="Itens cadastrados">
+                    <div class="section-heading">
+                        <div>
+                            <p class="section-kicker">Cardápio</p>
+                            <h2>Itens cadastrados</h2>
+                        </div>
+                        <span class="section-count"><%= totalItems %> itens</span>
+                    </div>
+
+                    <% if (safeItems.length === 0) { %>
+                        <p class="helper">Nenhum item cadastrado.</p>
                     <% } else { %>
-                        <div class="items-list">
-                            <% items.forEach(item => { %>
-                                <div class="item-row">
-                                    <div class="item-info">
-                                        <strong><%= item.name %></strong>
-                                        <span class="item-details">R$ <%= Number(item.price).toFixed(2) %> • <%= item.category || 'Sem categoria' %></span>
-                                    </div>
-                                    <div class="item-actions">
-                                        <button class="item-edit-btn" type="button" data-item-id="<%= item.id %>" data-item-name="<%= item.name %>" data-item-price="<%= item.price %>" data-item-category="<%= item.category || '' %>">✏️ Editar</button>
-                                        <form action="/items/<%= item.id %>/delete" method="POST" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja deletar este item?');">
-                                            <button type="submit" class="item-delete-btn">🗑️ Deletar</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            <% }) %>
+                        <div class="table-wrap">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Categoria</th>
+                                        <th>Preço</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% safeItems.forEach(item => { %>
+                                        <tr>
+                                            <td>
+                                                <strong><%= item.name %></strong>
+                                            </td>
+                                            <td><%= item.category || 'Sem categoria' %></td>
+                                            <td>R$ <%= Number(item.price).toFixed(2) %></td>
+                                            <td>
+                                                <div class="item-actions item-actions--table">
+                                                    <button class="item-edit-btn" type="button" data-item-id="<%= item.id %>" data-item-name="<%= item.name %>" data-item-price="<%= item.price %>" data-item-category="<%= item.category || '' %>">Editar</button>
+                                                    <form action="/items/<%= item.id %>/delete" method="POST" onsubmit="return confirm('Tem certeza que deseja deletar este item?');">
+                                                        <button type="submit" class="item-delete-btn">Deletar</button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
                         </div>
                     <% } %>
-                </section>
+                </article>
 
-                <section class="card" aria-label="Relatórios">
-                    <h3>Relatórios</h3>
-                    <p>Exporte o histórico de vendas para controle financeiro.</p>
-                    <a href="/admin/export" class="download-button" download>
-                        📊 Baixar Relatório (CSV)
-                    </a>
-                </section>
-            </div>
-
-            <h2>Fluxo de produção</h2>
-            <section class="board" aria-label="Quadro de pedidos por status">
-                <% ['Aberto', 'Cozinha', 'Entrega', 'Entregue'].forEach(status => { %>
-                    <section class="column" aria-label="<%= status %>">
-                        <div class="column-header">
-                            <h3><%= status %></h3>
-                            <span class="badge"><%= (ordersByStatus && ordersByStatus[status] ? ordersByStatus[status].length : 0) %></span>
+                <article class="card panel-card" aria-label="Pedidos recentes">
+                    <div class="section-heading">
+                        <div>
+                            <p class="section-kicker">Operação</p>
+                            <h2>Pedidos recentes</h2>
                         </div>
+                        <span class="section-count"><%= recentOrders.length %> visíveis</span>
+                    </div>
 
-                        <% const columnOrders = ordersByStatus && ordersByStatus[status] ? ordersByStatus[status] : []; %>
-                        <% if (columnOrders.length === 0) { %>
-                            <div class="empty-state">Sem pedidos nesta etapa.</div>
-                        <% } else { %>
-                            <div class="column-list">
-                                <% columnOrders.forEach(order => { %>
-                                    <article class="order-card">
-                                        <strong><%= order.customer_name %></strong>
-                                        <p class="order-meta">
-                                            <%= order.item_name || 'Marmita removida' %> -
-                                            <%= order.item_price != null ? `R$ ${Number(order.item_price).toFixed(2)}` : 'Preço indisponível' %>
-                                        </p>
-                                        <span class="order-status"><%= order.status %></span>
-                                        <% if (order.status !== 'Entregue') { %>
-                                            <form class="order-action" action="/orders/<%= order.id %>/advance" method="POST" data-advance-form>
-                                                <button type="submit" class="secondary-button" data-advance-button>Avançar status</button>
-                                            </form>
-                                        <% } else { %>
-                                            <p class="helper">Pedido concluído.</p>
-                                        <% } %>
-                                    </article>
-                                <% }) %>
+                    <% if (recentOrders.length === 0) { %>
+                        <p class="helper">Nenhum pedido registrado.</p>
+                    <% } else { %>
+                        <div class="table-wrap table-wrap--compact">
+                            <table class="data-table data-table--compact">
+                                <thead>
+                                    <tr>
+                                        <th>Cliente</th>
+                                        <th>Item</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% recentOrders.forEach(order => { %>
+                                        <tr>
+                                            <td><strong><%= order.customer_name %></strong></td>
+                                            <td>
+                                                <div><%= order.item_name || 'Marmita removida' %></div>
+                                                <span class="muted-inline"><%= order.item_price != null ? `R$ ${Number(order.item_price).toFixed(2)}` : 'Preço indisponível' %></span>
+                                            </td>
+                                            <td>
+                                                <span class="status-pill status-pill--<%= order.status.toLowerCase() %>"><%= order.status %></span>
+                                            </td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
+                        </div>
+                    <% } %>
+                </article>
+            </section>
+
+            <section class="board-card card" aria-label="Quadro de pedidos por status">
+                <div class="section-heading section-heading--board">
+                    <div>
+                        <p class="section-kicker">Produção</p>
+                        <h2>Fluxo de produção</h2>
+                    </div>
+                    <p class="helper">Acompanhe a passagem de cada pedido entre as etapas operacionais.</p>
+                </div>
+
+                <div class="board board--admin">
+                    <% statusList.forEach(status => { %>
+                        <% const columnOrders = safeOrdersByStatus[status]; %>
+                        <section class="column column--admin" aria-label="<%= status %>">
+                            <div class="column-header">
+                                <h3><%= status %></h3>
+                                <span class="badge"><%= columnOrders.length %></span>
                             </div>
+
+                            <% if (columnOrders.length === 0) { %>
+                                <div class="empty-state">Sem pedidos nesta etapa.</div>
+                            <% } else { %>
+                                <div class="column-list">
+                                    <% columnOrders.forEach(order => { %>
+                                        <article class="order-card">
+                                            <strong><%= order.customer_name %></strong>
+                                            <p class="order-meta">
+                                                <%= order.item_name || 'Marmita removida' %> -
+                                                <%= order.item_price != null ? `R$ ${Number(order.item_price).toFixed(2)}` : 'Preço indisponível' %>
+                                            </p>
+                                            <span class="order-status order-status--<%= order.status.toLowerCase() %>"><%= order.status %></span>
+                                            <% if (order.status !== 'Entregue') { %>
+                                                <form class="order-action" action="/orders/<%= order.id %>/advance" method="POST" data-advance-form>
+                                                    <button type="submit" class="secondary-button" data-advance-button>Avançar status</button>
+                                                </form>
+                                            <% } else { %>
+                                                <p class="helper">Pedido concluído.</p>
+                                            <% } %>
+                                        </article>
+                                    <% }) %>
+                                </div>
+                            <% } %>
+                        </section>
+                    <% }) %>
+                </div>
+            </section>
+
+            <section class="card finance-card-panel" aria-label="Finanças do mês">
+                <div class="section-heading section-heading--board">
+                    <div>
+                        <p class="section-kicker">Financeiro</p>
+                        <h2>Finanças do mês</h2>
+                    </div>
+                </div>
+
+                <div class="finance-panel">
+                    <div class="finance-card">
+                        <div class="label">Valor vendido</div>
+                        <div class="value">R$ <%= totalRevenue %></div>
+                    </div>
+                    <div class="finance-card">
+                        <div class="label">Número de vendas</div>
+                        <div class="value"><%= totalSales %></div>
+                    </div>
+                    <div class="finance-card">
+                        <div class="label">Total de itens vendidos</div>
+                        <div class="value"><%= totalItemsSold %></div>
+                    </div>
+                </div>
+
+                <div class="finance-lists">
+                    <div class="finance-list-block">
+                        <h3>Produtos mais vendidos</h3>
+                        <% if (financeTop.length) { %>
+                            <table class="data-table data-table--finance">
+                                <thead>
+                                    <tr>
+                                        <th>Produto</th>
+                                        <th>Vendas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% financeTop.forEach(product => { %>
+                                        <tr>
+                                            <td><%= product.name %></td>
+                                            <td><%= product.sold_count %></td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
+                        <% } else { %>
+                            <p class="helper">Nenhuma venda registrada neste período.</p>
                         <% } %>
-                    </section>
-                <% }) %>
+                    </div>
+
+                    <div class="finance-list-block">
+                        <h3>Produtos menos vendidos</h3>
+                        <% if (financeLeast.length) { %>
+                            <table class="data-table data-table--finance">
+                                <thead>
+                                    <tr>
+                                        <th>Produto</th>
+                                        <th>Vendas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% financeLeast.forEach(product => { %>
+                                        <tr>
+                                            <td><%= product.name %></td>
+                                            <td><%= product.sold_count %></td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
+                        <% } else { %>
+                            <p class="helper">Nenhuma venda registrada neste período.</p>
+                        <% } %>
+                    </div>
+                </div>
             </section>
         </main>
 
@@ -145,7 +369,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="secondary-button" data-close-modal>Cancelar</button>
-                        <button type="submit" class="primary-button">Salvar Alterações</button>
+                        <button type="submit" class="primary-button">Salvar alterações</button>
                     </div>
                 </form>
             </div>
