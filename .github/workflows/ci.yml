@@ -167,8 +167,20 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: lucasmartins1508/restaurante:v1.0.0
-          format: json
-          output: trivy-report.json
+          format: sarif
+          output: trivy-report.sarif
+
+      - name: Criar sonar-project.properties dinâmico
+        run: |
+          echo "sonar.projectKey=${{ github.event.repository.name }}" > sonar-project.properties
+          echo "sonar.projectName=${{ github.event.repository.name }}" >> sonar-project.properties
+          echo "sonar.branch.name=${{ github.ref_name }}" >> sonar-project.properties
+          echo "sonar.sources=." >> sonar-project.properties
+          echo "sonar.sourceEncoding=UTF-8" >> sonar-project.properties
+          echo "sonar.exclusions=node_modules/**,.git/**,.github/**,coverage/**,dist/**" >> sonar-project.properties
+
+      - name: Exibir configuração do Sonar
+        run: cat sonar-project.properties
 
       - name: SonarQube lendo o Trivy (External Issues)
         uses: sonarsource/sonarqube-scan-action@master
@@ -178,4 +190,4 @@ jobs:
         with:
           args: >
             -Dsonar.branch.name=${{ github.ref_name }}
-            -Dsonar.externalIssuesReportPaths=trivy-report.json
+            -Dsonar.sarifReportPaths=trivy-report.sarif
