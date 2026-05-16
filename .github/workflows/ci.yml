@@ -145,13 +145,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.REGISTRY_USERNAME }}/restaurante-lucas-martins:${{ github.sha }}
-
-      - name: Export image name
-        id: set-image
-        run: echo "image=${{ secrets.REGISTRY_USERNAME }}/restaurante-lucas-martins:${{ github.sha }}" >> $GITHUB_OUTPUT
-    outputs:
-      image: ${{ steps.set-image.outputs.image }}
+          tags: lucasmartins1508/restaurante:v1.0.0
 
   job_trivy_sonar:
     needs: job_release_docker
@@ -172,7 +166,7 @@ jobs:
       - name: Scan de Segurança com Trivy (imagem)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ needs.job_release_docker.outputs.image }}
+          image-ref: lucasmartins1508/restaurante:v1.0.0
           format: json
           output: trivy-report.json
 
