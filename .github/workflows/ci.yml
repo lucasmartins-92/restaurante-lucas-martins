@@ -170,7 +170,7 @@ jobs:
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - name: Scan de Segurança com Trivy (imagem)
-        uses: aquasecurity/trivy-action@v1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ needs.job_release_docker.outputs.image }}
           format: json
