@@ -1,8 +1,8 @@
 const express = require('express');
-const bodyParser = require('body-parser');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const path = require('path');
+const session = require('express-session');
 
 const app = express();
 // Ensure header that exposes framework/version is disabled
@@ -10,16 +10,26 @@ app.disable('x-powered-by');
 
 const ORDER_STATUSES = ['Aberto', 'Cozinha', 'Entrega', 'Entregue'];
 
+function requireEnv(name) {
+    const value = process.env[name];
+    if (!value) {
+        throw new Error(`Missing required environment variable: ${name}`);
+    }
+
+    return value;
+}
+
 const dbConfig = {
     host: process.env.DB_HOST || 'db',
     port: parseInt(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER || 'user',
-    password: process.env.DB_PASS || 'password',
+    password: requireEnv('DB_PASS'),
     database: process.env.DB_NAME || 'marmitadb'
 };
 
 let pool;
 const BCRYPT_SALT_ROUNDS = 10;
+const SESSION_SECRET = requireEnv('SESSION_SECRET');
 
 const AUTH_PAGE_CONFIGS = {
     login: {
@@ -111,7 +121,18 @@ async function connectWithRetry() {
     process.exit(1);
 }
 
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true }));
+app.use(session({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 1000 * 60 * 60 * 8
+    }
+}));
 app.use(express.static(path.join(__dirname, 'public'), {
     maxAge: '1d',
     etag: true,
@@ -331,6 +352,14 @@ function getNextOrderStatus(currentStatus) {
     return ORDER_STATUSES[currentIndex + 1];
 }
 
+function requireAuth(req, res, next) {
+    if (req.session && req.session.user) {
+        return next();
+    }
+
+    return res.redirect('/');
+}
+
 app.get('/', (req, res) => renderAuthPage(res, 'login'));
 
 app.get('/cadastro', (req, res) => renderAuthPage(res, 'cadastro'));
@@ -349,8 +378,21 @@ app.post('/login', async (req, res) => {
         const storedPassword = rows[0].password;
         const isValidPassword = await bcrypt.compare(password, storedPassword);
 
-        if (isValidPassword) res.redirect('/dashboard');
-        else res.status(401).render('auth', {
+        if (isValidPassword) {
+            return req.session.regenerate(regenerateError => {
+                if (regenerateError) {
+                    return res.status(500).render('auth', {
+                        ...AUTH_PAGE_CONFIGS.login,
+                        error: 'Erro ao iniciar sessão.'
+                    });
+                }
+
+                req.session.user = { username };
+                return res.redirect('/dashboard');
+            });
+        }
+
+        return res.status(401).render('auth', {
             ...AUTH_PAGE_CONFIGS.login,
             error: 'Usuário ou senha inválidos.'
         });
@@ -390,7 +432,13 @@ app.post('/cadastro', async (req, res) => {
     }
 });
 
-app.post('/add-item', async (req, res) => {
+app.post('/logout', requireAuth, (req, res) => {
+    req.session.destroy(() => {
+        res.redirect('/');
+    });
+});
+
+app.post('/add-item', requireAuth, async (req, res) => {
     const validation = validateItemInput(req.body);
 
     if (validation.error) {
@@ -418,7 +466,7 @@ app.post('/add-item', async (req, res) => {
     }
 });
 
-app.post('/items/:id/edit', async (req, res) => {
+app.post('/items/:id/edit', requireAuth, async (req, res) => {
     const itemId = Number(req.params.id);
     const validation = validateItemInput(req.body);
 
@@ -451,7 +499,7 @@ app.post('/items/:id/edit', async (req, res) => {
     }
 });
 
-app.post('/items/:id/delete', async (req, res) => {
+app.post('/items/:id/delete', requireAuth, async (req, res) => {
     const itemId = Number(req.params.id);
 
     if (!Number.isInteger(itemId) || itemId <= 0) {
@@ -484,7 +532,7 @@ app.post('/items/:id/delete', async (req, res) => {
     }
 });
 
-app.post('/orders', async (req, res) => {
+app.post('/orders', requireAuth, async (req, res) => {
     const validation = validateOrderInput(req.body);
 
     if (validation.error) {
@@ -522,7 +570,7 @@ app.post('/orders', async (req, res) => {
     }
 });
 
-app.post('/orders/:id/advance', async (req, res) => {
+app.post('/orders/:id/advance', requireAuth, async (req, res) => {
     const orderId = Number(req.params.id);
 
     if (!Number.isInteger(orderId) || orderId <= 0) {
@@ -548,12 +596,12 @@ app.post('/orders/:id/advance', async (req, res) => {
     }
 });
 
-app.get('/dashboard', async (req, res) => {
+app.get('/dashboard', requireAuth, async (req, res) => {
     const dashboardData = await loadDashboardData();
     res.render('dashboard', { ...dashboardData, error: null });
 });
 
-app.get('/admin/export', async (req, res) => {
+app.get('/admin/export', requireAuth, async (req, res) => {
     try {
         const [orders] = await pool.query(
             `SELECT
