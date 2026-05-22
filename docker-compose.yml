@@ -3,10 +3,10 @@ services:
     image: mysql:8.0
     container_name: marmitatech-db
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: marmitadb
       MYSQL_USER: user
-      MYSQL_PASSWORD: password
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-password}
     ports:
       - "3307:3306"
     volumes:
@@ -18,7 +18,7 @@ services:
       retries: 10
 
   app:
-    build: .
+    image: lucasmartins1508/restaurante:v1.0.0
     container_name: marmitatech-app
     ports:
       - "3000:3000"
@@ -26,8 +26,9 @@ services:
       DB_HOST: db
       DB_PORT: 3306
       DB_USER: user
-      DB_PASS: password
+      DB_PASS: ${MYSQL_PASSWORD:-password}
       DB_NAME: marmitadb
+      SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret}
     depends_on:
       db:
         condition: service_healthy
