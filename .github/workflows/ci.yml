@@ -191,3 +191,41 @@ jobs:
           args: >
             -Dsonar.branch.name=${{ github.ref_name }}
             -Dsonar.sarifReportPaths=trivy-report.sarif
+
+  job_deploy_staging:
+    needs: job_trivy_sonar
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Preparar arquivo Compose com o identificador do aluno
+        run: |
+          # Copia o compose original para o formato fixo: docker-compose-2222.yml
+          cp docker-compose.yml docker-compose-1508.yml
+
+      - name: Copiar Compose para a EC2 (via SCP)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          source: "docker-compose-1508.yml"
+          target: "/home/${{ secrets.EC2_USER }}/deploy_1508/"
+
+      - name: Executar o Deploy na EC2 (via SSH)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            # Entra na pasta onde o arquivo foi copiado
+            cd /home/${{ secrets.EC2_USER }}/deploy_1508
+
+            # Força o pull da nova imagem e sobe o container do aluno
+            docker compose -f docker-compose-1508.yml pull
+            docker compose -f docker-compose-1508.yml up -d
+
+            echo "✅ Deploy do aluno 1508 finalizado com sucesso!"
