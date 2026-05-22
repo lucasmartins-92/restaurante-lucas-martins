@@ -1,5 +1,5 @@
 # Stage 1: Build (install production dependencies)
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --chown=root:root --chmod=0644 package*.json ./
 RUN npm config set registry https://registry.yarnpkg.com/ \
@@ -11,7 +11,7 @@ COPY --chown=root:root --chmod=0755 public ./public
 COPY --chown=root:root --chmod=0755 views ./views
 
 # Stage 2: Runtime (minimal image with non-root user)
-FROM node:18-alpine AS runtime
+FROM node:22-alpine AS runtime
 WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 
