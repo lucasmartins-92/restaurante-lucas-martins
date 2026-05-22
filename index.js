@@ -172,7 +172,7 @@ async function loadDashboardData() {
     try {
         financeMetrics = await computeMonthlyFinance();
     } catch (err) {
-        console.log('Erro ao calcular métricas financeiras:', err && err.message ? err.message : err);
+        console.log('Erro ao calcular métricas financeiras:', err?.message ?? err);
         financeMetrics = {
             totalValueSold: 0,
             numberOfSales: 0,
@@ -353,7 +353,7 @@ function getNextOrderStatus(currentStatus) {
 }
 
 function requireAuth(req, res, next) {
-    if (req.session && req.session.user) {
+    if (req.session?.user) {
         return next();
     }
 
