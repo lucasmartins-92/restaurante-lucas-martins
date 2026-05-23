@@ -10,6 +10,6 @@ services:
       DB_PASS: password
       DB_NAME: marmitadb
       SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret}
-  networks:
-    rede_alunos:
-      external: true
+networks:
+  rede_alunos:
+    external: true
