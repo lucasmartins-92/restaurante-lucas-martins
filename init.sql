@@ -25,5 +25,3 @@ CREATE TABLE orders (
 ALTER TABLE orders
     ADD CONSTRAINT fk_orders_items
     FOREIGN KEY (item_id) REFERENCES items(id);
-
-INSERT INTO items (name, category, price) VALUES ('Arroz Branco', 'Base', 12.50), ('Feijão Preto', 'Grão', 10.00);
