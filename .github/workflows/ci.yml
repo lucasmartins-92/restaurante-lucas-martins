@@ -2,10 +2,8 @@ name: integracao continua e staging
 
 on:
   push:
-    branches: ["develop", "staging"]
-  pull_request:
-    branches: ["develop"]
-
+    branches: ["staging"]
+    
 jobs:
   # ==========================================
   # ETAPAS EXISTENTES (Completas)

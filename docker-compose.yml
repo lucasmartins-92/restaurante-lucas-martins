@@ -1,15 +1,18 @@
 services:
   app:
-    image: lucasmartins1508/restaurante:v1.0.0
+    image: lucasmartins1508/restaurante:staging
     container_name: restaurante-lucas-martins
     ports:
       - "8083:3000"
     environment:
-      DB_HOST: 54.89.88.5
+      DB_HOST: mysql-infra
+      DB_PORT: 3306
       DB_USER: root
       DB_PASS: password
-      DB_NAME: marmitadb
+      DB_NAME: lucasmartdb
       SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret}
+    networks:
+      - rede_alunos
 networks:
   rede_alunos:
     external: true
