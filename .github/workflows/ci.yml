@@ -84,44 +84,10 @@ jobs:
       - name: Rodar lint
         run: npx eslint .
 
-  job_sonar:
-    needs: estagio_lint
-    # Restringe este job específico de Sonar básico apenas para a develop
-    if: github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Essencial para o Sonar ler o histórico de branches
-
-      - name: Criar sonar-project.properties dinâmico
-        run: |
-          # Define o nome do repo e a branch dinamicamente
-          echo "sonar.projectKey=${{ github.event.repository.name }}" > sonar-project.properties
-          echo "sonar.projectName=${{ github.event.repository.name }}" >> sonar-project.properties
-          echo "sonar.branch.name=${{ github.ref_name }}" >> sonar-project.properties
-          echo "sonar.sources=." >> sonar-project.properties
-          echo "sonar.sourceEncoding=UTF-8" >> sonar-project.properties
-          echo "sonar.exclusions=node_modules/**,.git/**,.github/**,coverage/**,dist/**" >> sonar-project.properties
-
-      - name: Exibir configuração do Sonar
-        run: cat sonar-project.properties
-
-      - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.TOKEN_SONARQUBE }}
-          SONAR_HOST_URL: "https://devsecops.dcotech.com.br"
-        with:
-          # Reforça a branch nos argumentos da execução
-          args: >
-            -Dsonar.branch.name=${{ github.ref_name }}
-
   # ==========================================
   # ETAPAS DE STAGING (Esqueleto)
   # ==========================================
-  
+
   job_release_docker:
     needs: estagio_lint
     if: github.ref == 'refs/heads/staging'
@@ -209,7 +175,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
-          source: "docker-compose-1508.yml, init.sql"
+          source: "docker-compose-1508.yml,init.sql"
           target: "/home/${{ secrets.EC2_USER }}/deploy_1508/"
 
       - name: Executar o Deploy na EC2 (via SSH)

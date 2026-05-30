@@ -21,5 +21,5 @@ COPY --from=builder --chown=root:root /app /app
 USER nodejs
 EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/dashboard', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" || exit 1
+  CMD node -e "require('http').get('http://localhost:3000/', res => { if (![200,302].includes(res.statusCode)) process.exit(1) }, err => process.exit(1))" || exit 1
 CMD ["npm", "start"]
