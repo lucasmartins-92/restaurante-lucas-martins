@@ -222,14 +222,15 @@ jobs:
             # Entra na pasta onde o arquivo foi copiado
             cd /home/${{ secrets.EC2_USER }}/deploy_1508
 
+            # Executa o init.sql no container MySQL antes de subir a aplicação
             echo "⏳ Executando init.sql no container mysql-infra..."
             sudo docker exec -i mysql-infra \
               mysql -u root -ppassword < init.sql
 
             echo "✅ init.sql executado com sucesso!"
 
-            # Faz pull da nova imagem e sobe o container da aplicação
-            sudo docker compose -f docker-compose-jenrique.yml pull
-            sudo docker compose -f docker-compose-jenrique.yml up -d
+            # Força o pull da nova imagem e sobe o container do aluno
+            sudo docker compose -f docker-compose-1508.yml pull
+            sudo docker compose -f docker-compose-1508.yml up -d
 
-            echo "✅ Deploy do aluno jenrique finalizado com sucesso!"
+            echo "✅ Deploy do aluno 1508 finalizado com sucesso!"
