@@ -2,6 +2,7 @@ services:
   app:
     image: lucasmartins1508/restaurante:staging
     container_name: restaurante-lucas-martins
+    restart: unless-stopped
     ports:
       - "8083:3000"
     environment:
@@ -10,6 +11,7 @@ services:
       DB_USER: root
       DB_PASS: password
       DB_NAME: lucasmartdb
+      SESSION_SECRET: ${SESSION_SECRET}
     networks:
       - rede_alunos
 networks:

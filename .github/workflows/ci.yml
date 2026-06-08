@@ -201,6 +201,17 @@ jobs:
           source: "docker-compose-1508.yml,init.sql"
           target: "/home/${{ secrets.EC2_USER }}/deploy_1508/"
 
+      - name: Criar arquivo .env para o deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            cat > /home/${{ secrets.EC2_USER }}/deploy_1508/.env <<'EOF'
+            SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+            EOF
+
       - name: Executar o Deploy na EC2 (via SSH)
         uses: appleboy/ssh-action@v1.0.3
         with:
