@@ -25,13 +25,9 @@ CREATE TABLE IF NOT EXISTS orders (
     FOREIGN KEY (item_id) REFERENCES items(id)
 );
 
--- SENHA: admin123 (hasheada com HMAC-SHA256 + salt, formato: salt:hash)
-INSERT INTO users (username, password) VALUES 
-('admin', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4:18790963ae27d0273292ddda92ed337ae2492c920badc3a854c32eaefabcaf92');
-
 INSERT INTO items (name, price, category) VALUES 
-('Arroz Branco', 5.00, 'Base'),
-('Feijão Preto', 7.50, 'Grão'),
+('Arroz Branco', 5.00, 'Acompanhamento'),
+('Feijão Preto', 7.50, 'Acompanhamento'),
 ('Frango Grelhado', 18.90, 'Proteína'),
 ('Bife Acebolado', 22.50, 'Proteína'),
 ('Salada Mista', 9.00, 'Acompanhamento');

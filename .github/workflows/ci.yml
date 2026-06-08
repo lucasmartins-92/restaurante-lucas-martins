@@ -22,11 +22,8 @@ jobs:
           node-version: "18"
           package-manager-cache: false
 
-      - name: Gerar lockfile temporário
-        run: npm install --package-lock-only
-
       - name: Instalar dependências
-        run: npm install
+        run: npm ci
 
       - name: Verificar sintaxe de todos os arquivos JS
         run: |
@@ -49,11 +46,8 @@ jobs:
           node-version: "18"
           package-manager-cache: false
 
-      - name: Gerar lockfile temporário
-        run: npm install --package-lock-only
-
       - name: Instalar dependências
-        run: npm install
+        run: npm ci
 
       - name: Instalar dependências temporárias do lint
         run: npm install --no-save eslint globals
