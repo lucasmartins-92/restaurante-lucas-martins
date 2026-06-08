@@ -88,14 +88,22 @@ jobs:
     # Restringe este job específico de Sonar básico apenas para a develop
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     steps:
+      - name: Pular análise Sonar quando token não estiver configurado
+        if: env.SONAR_TOKEN == ''
+        run: echo "SONAR_TOKEN não configurado. Pulando análise SonarQube."
+
       - name: Checkout do código
+        if: env.SONAR_TOKEN != ''
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Essencial para o Sonar ler o histórico de branches
 
       - name: Criar sonar-project.properties dinâmico
+        if: env.SONAR_TOKEN != ''
         run: |
           # Define o nome do repo e a branch dinamicamente
           echo "sonar.projectKey=${{ github.event.repository.name }}" > sonar-project.properties
@@ -106,12 +114,14 @@ jobs:
           echo "sonar.exclusions=node_modules/**,.git/**,.github/**,coverage/**,dist/**" >> sonar-project.properties
 
       - name: Exibir configuração do Sonar
+        if: env.SONAR_TOKEN != ''
         run: cat sonar-project.properties
 
       - name: SonarQube Scan
+        if: env.SONAR_TOKEN != ''
         uses: sonarsource/sonarqube-scan-action@master
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
           SONAR_HOST_URL: "https://devsecops.dcotech.com.br"
         with:
           # Reforça a branch nos argumentos da execução
