@@ -14,10 +14,10 @@ FROM node:18-alpine AS runtime
 WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 
-COPY --from=builder /app /app
+COPY --from=builder --chown=nodejs:nodejs /app /app
 
 USER nodejs
 EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/', res => { if (![200,302].includes(res.statusCode)) process.exit(1) }, err => process.exit(1))" || exit 1
-CMD ["npm", "start"]
+CMD ["node", "index.js"]
