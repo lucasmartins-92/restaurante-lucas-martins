@@ -27,7 +27,7 @@ const dbConfig = {
     database: process.env.DB_NAME || 'marmitadb'
 };
 
-let pool;
+let pool = null;
 const BCRYPT_SALT_ROUNDS = 10;
 const SESSION_SECRET = requireEnv('SESSION_SECRET');
 
@@ -121,7 +121,7 @@ async function connectWithRetry() {
     process.exit(1);
 }
 
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ limit: '10kb', extended: true }));
 app.use(session({
     secret: SESSION_SECRET,
     resave: false,
@@ -144,17 +144,17 @@ app.set('views', path.join(__dirname, 'views'));
 async function loadDashboardData() {
     const [items] = await pool.query('SELECT * FROM items');
     const [orders] = await pool.query(
-        `SELECT
-            orders.id,
-            orders.customer_name,
-            orders.status,
-            orders.item_id,
-            items.name AS item_name,
-            items.category AS item_category,
-            items.price AS item_price
-            FROM orders
-            LEFT JOIN items ON items.id = orders.item_id
-         ORDER BY FIELD(orders.status, 'Aberto', 'Cozinha', 'Entrega', 'Entregue'), orders.id DESC`
+        'SELECT ' +
+        'orders.id, ' +
+        'orders.customer_name, ' +
+        'orders.status, ' +
+        'orders.item_id, ' +
+        'items.name AS item_name, ' +
+        'items.category AS item_category, ' +
+        'items.price AS item_price ' +
+        'FROM orders ' +
+        'LEFT JOIN items ON items.id = orders.item_id ' +
+        "ORDER BY FIELD(orders.status, 'Aberto', 'Cozinha', 'Entrega', 'Entregue'), orders.id DESC"
     );
 
     const ordersByStatus = ORDER_STATUSES.reduce((columns, status) => {
@@ -172,7 +172,7 @@ async function loadDashboardData() {
     try {
         financeMetrics = await computeMonthlyFinance();
     } catch (err) {
-        console.log('Erro ao calcular métricas financeiras:', err?.message ?? err);
+        console.log('Erro ao calcular métricas financeiras:', err instanceof Error ? err.message : String(err));
         financeMetrics = {
             totalValueSold: 0,
             numberOfSales: 0,
@@ -189,7 +189,7 @@ async function loadDashboardData() {
 async function computeMonthlyFinance() {
     // Verifica se existe created_at na tabela orders
     const [cols] = await pool.query(
-        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'created_at'`,
+        'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = \'orders\' AND COLUMN_NAME = \'created_at\'',
         [dbConfig.database]
     );
 
@@ -202,49 +202,27 @@ async function computeMonthlyFinance() {
 
     const summaryParams = hasCreatedAt ? ['Entregue', month, year] : ['Entregue'];
 
-    const [summaryRows] = await pool.query(
-        `SELECT
-            COUNT(orders.id) AS num_sales,
-            SUM(IF(items.price IS NULL, 0, items.price)) AS total_value,
-            SUM(IF(items.id IS NOT NULL, 1, 0)) AS total_items_sold
-         FROM orders
-         LEFT JOIN items ON items.id = orders.item_id
-         WHERE orders.status = ? ${dateFilter}`,
-        summaryParams
-    );
+    const summaryQuery = hasCreatedAt
+        ? 'SELECT COUNT(orders.id) AS num_sales, SUM(IF(items.price IS NULL, 0, items.price)) AS total_value, SUM(IF(items.id IS NOT NULL, 1, 0)) AS total_items_sold FROM orders LEFT JOIN items ON items.id = orders.item_id WHERE orders.status = ? AND MONTH(orders.created_at)=? AND YEAR(orders.created_at)=?'
+        : 'SELECT COUNT(orders.id) AS num_sales, SUM(IF(items.price IS NULL, 0, items.price)) AS total_value, SUM(IF(items.id IS NOT NULL, 1, 0)) AS total_items_sold FROM orders LEFT JOIN items ON items.id = orders.item_id WHERE orders.status = ?';
+
+    const [summaryRows] = await pool.query(summaryQuery, summaryParams);
 
     const summary = summaryRows[0] || { num_sales: 0, total_value: 0, total_items_sold: 0 };
 
-    const dateWhereSub = hasCreatedAt ? 'AND MONTH(o.created_at)=? AND YEAR(o.created_at)=?' : '';
     const subParams = hasCreatedAt ? [month, year] : [];
 
-    const [topRows] = await pool.query(
-        `SELECT i.id, i.name, COALESCE(c.cnt,0) AS sold_count
-         FROM items i
-         LEFT JOIN (
-             SELECT item_id, COUNT(*) AS cnt
-             FROM orders o
-             WHERE o.status = 'Entregue' ${dateWhereSub} AND item_id IS NOT NULL
-             GROUP BY item_id
-         ) c ON c.item_id = i.id
-         ORDER BY sold_count DESC, i.name ASC
-         LIMIT 5`,
-        subParams
-    );
+    const topQuery = hasCreatedAt
+        ? 'SELECT i.id, i.name, COALESCE(c.cnt,0) AS sold_count FROM items i LEFT JOIN (SELECT item_id, COUNT(*) AS cnt FROM orders o WHERE o.status = \'Entregue\' AND MONTH(o.created_at)=? AND YEAR(o.created_at)=? AND item_id IS NOT NULL GROUP BY item_id) c ON c.item_id = i.id ORDER BY sold_count DESC, i.name ASC LIMIT 5'
+        : 'SELECT i.id, i.name, COALESCE(c.cnt,0) AS sold_count FROM items i LEFT JOIN (SELECT item_id, COUNT(*) AS cnt FROM orders o WHERE o.status = \'Entregue\' AND item_id IS NOT NULL GROUP BY item_id) c ON c.item_id = i.id ORDER BY sold_count DESC, i.name ASC LIMIT 5';
 
-    const [leastRows] = await pool.query(
-        `SELECT i.id, i.name, COALESCE(c.cnt,0) AS sold_count
-         FROM items i
-         LEFT JOIN (
-             SELECT item_id, COUNT(*) AS cnt
-             FROM orders o
-             WHERE o.status = 'Entregue' ${dateWhereSub} AND item_id IS NOT NULL
-             GROUP BY item_id
-         ) c ON c.item_id = i.id
-         ORDER BY sold_count ASC, i.name ASC
-         LIMIT 5`,
-        subParams
-    );
+    const [topRows] = await pool.query(topQuery, subParams);
+
+    const leastQuery = hasCreatedAt
+        ? 'SELECT i.id, i.name, COALESCE(c.cnt,0) AS sold_count FROM items i LEFT JOIN (SELECT item_id, COUNT(*) AS cnt FROM orders o WHERE o.status = \'Entregue\' AND MONTH(o.created_at)=? AND YEAR(o.created_at)=? AND item_id IS NOT NULL GROUP BY item_id) c ON c.item_id = i.id ORDER BY sold_count ASC, i.name ASC LIMIT 5'
+        : 'SELECT i.id, i.name, COALESCE(c.cnt,0) AS sold_count FROM items i LEFT JOIN (SELECT item_id, COUNT(*) AS cnt FROM orders o WHERE o.status = \'Entregue\' AND item_id IS NOT NULL GROUP BY item_id) c ON c.item_id = i.id ORDER BY sold_count ASC, i.name ASC LIMIT 5';
+
+    const [leastRows] = await pool.query(leastQuery, subParams);
 
     const averageItemsPerSale = summary.num_sales > 0 ? (Number(summary.total_items_sold) / Number(summary.num_sales)) : 0;
 
@@ -261,11 +239,7 @@ async function computeMonthlyFinance() {
 
 async function ensureItemsSchema() {
     const [columns] = await pool.query(
-        `SELECT COLUMN_NAME
-         FROM INFORMATION_SCHEMA.COLUMNS
-         WHERE TABLE_SCHEMA = ?
-           AND TABLE_NAME = 'items'
-           AND COLUMN_NAME = 'price'`,
+        'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = \'items\' AND COLUMN_NAME = \'price\'',
         [dbConfig.database]
     );
 
@@ -277,11 +251,7 @@ async function ensureItemsSchema() {
 
 async function ensureOrdersSchema() {
     const [columns] = await pool.query(
-        `SELECT COLUMN_NAME
-         FROM INFORMATION_SCHEMA.COLUMNS
-         WHERE TABLE_SCHEMA = ?
-           AND TABLE_NAME = 'orders'
-           AND COLUMN_NAME = 'item_id'`,
+        'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = \'orders\' AND COLUMN_NAME = \'item_id\'',
         [dbConfig.database]
     );
 
@@ -291,11 +261,7 @@ async function ensureOrdersSchema() {
     }
 
     const [statusColumns] = await pool.query(
-        `SELECT COLUMN_NAME
-         FROM INFORMATION_SCHEMA.COLUMNS
-         WHERE TABLE_SCHEMA = ?
-           AND TABLE_NAME = 'orders'
-           AND COLUMN_NAME = 'status'`,
+        'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = \'orders\' AND COLUMN_NAME = \'status\'',
         [dbConfig.database]
     );
 
@@ -604,15 +570,8 @@ app.get('/dashboard', requireAuth, async (req, res) => {
 app.get('/admin/export', requireAuth, async (req, res) => {
     try {
         const [orders] = await pool.query(
-            `SELECT
-                orders.id,
-                orders.customer_name,
-                orders.status,
-                items.name AS item_name,
-                items.price AS item_price
-            FROM orders
-            LEFT JOIN items ON items.id = orders.item_id
-            ORDER BY orders.id DESC`
+            'SELECT orders.id, orders.customer_name, orders.status, items.name AS item_name, items.price AS item_price ' +
+            'FROM orders LEFT JOIN items ON items.id = orders.item_id ORDER BY orders.id DESC'
         );
 
         // Gera CSV com BOM para abrir corretamente no Excel
@@ -646,6 +605,6 @@ connectWithRetry()
         app.listen(3000, () => console.log('🚀 MARMITATECH PRO ONLINE NA PORTA 3000'));
     })
     .catch(err => {
-        console.error('❌ [DATABASE] Falha ao iniciar aplicação:', err);
+        console.error('❌ [DATABASE] Falha ao iniciar aplicação:', err instanceof Error ? err.message : String(err));
         process.exit(1);
     });
