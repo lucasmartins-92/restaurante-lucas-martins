@@ -10,7 +10,7 @@ services:
       DB_PORT: 3306
       DB_USER: root
       DB_PASS: password
-      DB_NAME: lucasmartdb
+      DB_NAME: lucasmartinsdb
       SESSION_SECRET: ${SESSION_SECRET}
     networks:
       - rede_alunos

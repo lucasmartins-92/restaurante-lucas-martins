@@ -3,7 +3,7 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 RUN apk add --no-cache --virtual .build-deps python3 make g++
 COPY package*.json ./
-RUN npm ci --omit=dev --no-audit --no-fund
+RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts
 
 COPY index.js ./
 COPY public ./public
