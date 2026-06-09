@@ -198,8 +198,6 @@ async function computeMonthlyFinance() {
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
 
-    const dateFilter = hasCreatedAt ? 'AND MONTH(orders.created_at)=? AND YEAR(orders.created_at)=?' : '';
-
     const summaryParams = hasCreatedAt ? ['Entregue', month, year] : ['Entregue'];
 
     const summaryQuery = hasCreatedAt
@@ -579,7 +577,7 @@ app.get('/admin/export', requireAuth, async (req, res) => {
         csv += 'ID,Cliente,Item,Preço,Status\n';
 
         orders.forEach(order => {
-            const price = order.item_price != null ? `R$ ${Number(order.item_price).toFixed(2)}` : 'N/A';
+            const price = order.item_price !== null && order.item_price !== undefined ? `R$ ${Number(order.item_price).toFixed(2)}` : 'N/A';
             const itemName = order.item_name || 'Marmita removida';
 
             // Escapa aspas duplas em valores CSV

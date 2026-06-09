@@ -1,7 +1,7 @@
 # Stage 1: Build (install production dependencies)
 FROM node:18-alpine AS builder
 WORKDIR /app
-RUN apk add --no-cache --virtual .build-deps python3 make g++
+RUN apk update && apk upgrade --no-cache && apk add --no-cache --virtual .build-deps python3 make g++
 COPY package*.json ./
 RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts
 
@@ -12,9 +12,9 @@ COPY views ./views
 # Stage 2: Runtime (minimal image with non-root user)
 FROM node:18-alpine AS runtime
 WORKDIR /app
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+RUN apk update && apk upgrade --no-cache && addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 
-COPY --from=builder --chown=nodejs:nodejs /app /app
+COPY --from=builder /app /app
 
 USER nodejs
 EXPOSE 3000
