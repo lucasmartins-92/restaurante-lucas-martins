@@ -24,7 +24,7 @@ const dbConfig = {
     port: parseInt(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER || 'user',
     password: requireEnv('DB_PASS'),
-    database: process.env.DB_NAME || 'marmitadb'
+    database: process.env.DB_NAME || 'lucasmartinsdb'
 };
 
 let pool = null;
@@ -65,7 +65,7 @@ const AUTH_PAGE_CONFIGS = {
     cadastro: {
         title: 'Cadastro de Usuário - Podrão do Lucas',
         cardLabel: 'Cadastro de usuário',
-        heading: 'Podrão do <span>Lucas</span>',
+        heading: 'Podrão do Lucas',
         subtitle: 'Cadastro de novo usuário.',
         formAction: '/cadastro',
         submitLabel: 'Confirmar Cadastro',
