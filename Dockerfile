@@ -1,23 +1,33 @@
-# Stage 1: Build (install production dependencies)
-FROM node:18-alpine AS builder
+# Estágio 1: Build
+FROM node:22-alpine AS builder
 WORKDIR /app
-RUN apk update && apk upgrade --no-cache && apk add --no-cache --virtual .build-deps python3 make g++
+
+# Copia apenas os arquivos de dependência
 COPY package*.json ./
+
+# Instala apenas as dependências de produção de forma limpa
 RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts
 
+# Copia apenas os arquivos necessários do projeto
 COPY index.js ./
 COPY public ./public
 COPY views ./views
 
-# Stage 2: Runtime (minimal image with non-root user)
-FROM node:18-alpine AS runtime
+# Estágio 2: Runtime (Imagem final enxuta)
+FROM node:22-alpine AS runtime
 WORKDIR /app
-RUN apk update && apk upgrade --no-cache && addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 
-COPY --from=builder /app /app
+# Atualiza pacotes do sistema por segurança
+RUN apk update && apk upgrade --no-cache
 
-USER nodejs
+# Copia os arquivos do builder aplicando a permissão ao usuário 'node' (que já existe na imagem)
+COPY --from=builder --chown=node:node /app /app
+
+# Define o usuário seguro
+USER node
 EXPOSE 3000
-HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/', res => { if (![200,302].includes(res.statusCode)) process.exit(1) }, err => process.exit(1))" || exit 1
+
+# Healthcheck corrigido (em uma única linha para evitar falhas de parse)
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 CMD node -e "require('http').get('http://localhost:3000/', res => { if (![200,302].includes(res.statusCode)) process.exit(1) }, err => process.exit(1))"
+
 CMD ["node", "index.js"]
