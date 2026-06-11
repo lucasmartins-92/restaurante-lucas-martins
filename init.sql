@@ -1,3 +1,4 @@
+DROP DATABASE IF EXISTS lucasmartinsdb;
 CREATE DATABASE IF NOT EXISTS lucasmartinsdb;
 USE lucasmartinsdb;
 
